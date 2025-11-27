@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "404595228914",
+    "project_id": "dignity-with-care",
+    "storage_bucket": "dignity-with-care.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:404595228914:android:d7ba4b067d0701c1db106b",
+        "android_client_info": {
+          "package_name": "com.leos.dignitywithcare.dignitywithcare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQytihTPKoTW2RFrOUfJlV21fiv2TKsp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:404595228914:android:7dd8c1dfc5aaa707db106b",
+        "android_client_info": {
+          "package_name": "com.leosgroup.dignitywithcare.dignitywithcare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQytihTPKoTW2RFrOUfJlV21fiv2TKsp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
