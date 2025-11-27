@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -6,7 +7,7 @@ class DocumentController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Convert human-readable name to clean storage key
+  /// Convert name → consistent storage key
   String mapDocNameToKey(String name) {
     return name
         .toLowerCase()
@@ -21,7 +22,6 @@ class DocumentController {
         .replaceAll(" ", "_");
   }
 
-  // GET all documents
   Future<List<Map<String, dynamic>>> getUserDocuments(String uid) async {
     final snap = await _firestore
         .collection("users")
@@ -32,7 +32,7 @@ class DocumentController {
     return snap.docs.map((d) => d.data()).toList();
   }
 
-  // GET single document
+  /// Get a single document
   Future<Map<String, dynamic>?> getDocument(String uid, String docType) async {
     final key = mapDocNameToKey(docType);
 
@@ -46,49 +46,54 @@ class DocumentController {
     return doc.exists ? doc.data() : null;
   }
 
-  // UPLOAD document + metadata
-  Future<String?> uploadDocument(
-      String uid,
-      String docType,
-      File file,
-      DateTime? expiration,
-      ) async {
+  /// Upload document (supports mobile AND web)
+  Future<String?> uploadDocument({
+    required String uid,
+    required String docType,
+    Uint8List? webBytes,
+    String? filename,
+    String? mobilePath,
+    DateTime? expiration,
+  }) async {
     try {
-      final docKey = mapDocNameToKey(docType);
-      final ext = file.path.split('.').last;
+      final key = mapDocNameToKey(docType);
+      final ext = filename?.split('.').last ?? "jpg";
 
-      // Firebase Storage upload
-      final ref = _storage.ref().child(
-        "users/$uid/documents/$docKey/file.$ext",
-      );
+      final ref = _storage.ref("users/$uid/documents/$key/file.$ext");
 
-      await ref.putFile(file);
-      final fileUrl = await ref.getDownloadURL();
+      /// Upload file depending on platform
+      if (webBytes != null) {
+        await ref.putData(webBytes);
+      } else if (mobilePath != null) {
+        final file = File(mobilePath);
+        await ref.putFile(file);
+      } else {
+        return "No file data provided";
+      }
 
-      // Firestore metadata
+      /// Force correct Firebase Storage bucket download URL
+      final downloadUrl = await ref.getDownloadURL();
+
       await _firestore
           .collection("users")
           .doc(uid)
           .collection("documents")
-          .doc(docKey)
+          .doc(key)
           .set({
         "docType": docType,
-        "docKey": docKey,
-        "fileUrl": fileUrl,
+        "fileUrl": downloadUrl,
         "status": "processing",
         "uploadedAt": FieldValue.serverTimestamp(),
-        "expiration": expiration != null
-            ? Timestamp.fromDate(expiration)
-            : null,
+        "expiration": expiration,
       }, SetOptions(merge: true));
 
-      return null;
+      return null; // success
     } catch (e) {
       return e.toString();
     }
   }
 
-  // UPDATE status
+  /// Update status
   Future<void> updateStatus(String uid, String docType, String status) async {
     final key = mapDocNameToKey(docType);
 
@@ -100,11 +105,11 @@ class DocumentController {
         .update({"status": status});
   }
 
-  // DELETE document
+  /// Delete document
   Future<void> deleteDocument(String uid, String docType) async {
     final key = mapDocNameToKey(docType);
 
-    // Delete Firestore document
+    // Delete Firestore metadata
     await _firestore
         .collection("users")
         .doc(uid)
@@ -112,9 +117,9 @@ class DocumentController {
         .doc(key)
         .delete();
 
-    // Delete Storage file
+    // Delete file from Storage
     await _storage
-        .ref("users/$uid/documents/$key/file")
+        .ref("users/$uid/documents/$key")
         .delete()
         .catchError((_) {});
   }

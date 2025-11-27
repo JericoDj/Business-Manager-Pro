@@ -1,5 +1,6 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
+import 'dart:io' show File;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import '../controllers/document_controller.dart';
 
 class DocumentProvider extends ChangeNotifier {
@@ -19,44 +20,47 @@ class DocumentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get status of a single document (Dashboard)
+  /// Get the status for UI (dashboard)
   String getStatusForDoc(String docType) {
     final doc = documents.firstWhere(
           (d) => d["docType"] == docType,
       orElse: () => {},
     );
 
-    if (doc.isEmpty) return "Missing";
+    if (doc.isEmpty) return "missing";
 
-    // Handle expiration dates
-    if (doc.containsKey("expiration") && doc["expiration"] != null) {
+    final now = DateTime.now();
+
+    // Expiration logic
+    if (doc["expiration"] != null) {
       final exp = doc["expiration"].toDate();
-      final now = DateTime.now();
 
-      if (exp.isBefore(now)) return "Expired";
-
-      // Within 30 days
-      if (exp.difference(now).inDays <= 30) return "Near Expiry";
+      if (exp.isBefore(now)) return "expired";
+      if (exp.difference(now).inDays <= 30) return "near expiry";
     }
 
-    return doc["status"] ?? "Missing";
+    return (doc["status"] ?? "missing").toString().toLowerCase();
   }
 
-  /// Upload (or replace)
+  /// Upload document (Web + Mobile)
   Future<String?> upload({
     required String userId,
-    required String type,
-    required File file,
+    required String docType,
+    Uint8List? webBytes,
+    String? filename,
+    File? mobileFile,
     DateTime? expiration,
   }) async {
     loading = true;
     notifyListeners();
 
     final error = await _controller.uploadDocument(
-      userId,
-      type,
-      file,
-      expiration,
+      uid: userId,
+      docType: docType,
+      webBytes: webBytes,
+      filename: filename,
+      mobilePath: mobileFile?.path,
+      expiration: expiration,
     );
 
     await loadDocuments(userId);
@@ -67,10 +71,12 @@ class DocumentProvider extends ChangeNotifier {
     return error;
   }
 
-  Future<Map<String, dynamic>?> getDocument(String uid, String docType) async {
-    return await _controller.getDocument(uid, docType);
+  /// Get single document details
+  Future<Map<String, dynamic>?> getDocument(String uid, String docType) {
+    return _controller.getDocument(uid, docType);
   }
 
+  /// Update status (admin usage)
   Future<void> updateStatus({
     required String uid,
     required String docType,
@@ -80,6 +86,7 @@ class DocumentProvider extends ChangeNotifier {
     await loadDocuments(uid);
   }
 
+  /// Delete document
   Future<void> deleteDocument(String uid, String docType) async {
     await _controller.deleteDocument(uid, docType);
     await loadDocuments(uid);

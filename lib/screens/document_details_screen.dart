@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -21,7 +23,10 @@ class DocumentDetailsScreen extends StatefulWidget {
 }
 
 class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
-  File? pickedFile;
+  File? mobileFile;
+  Uint8List? webBytes;
+  String? filename;
+
   Map<String, dynamic>? docData;
   bool loading = true;
   DateTime? expirationDate;
@@ -31,7 +36,7 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
     "CPR Certification",
     "Driver’s License",
     "Physical",
-    "TB Test Result"
+    "TB Test Result",
   ];
 
   @override
@@ -42,12 +47,12 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
 
   Future<void> loadDoc() async {
     final auth = context.read<AuthProvider>();
-    final docProvider = context.read<DocumentProvider>();
+    final docs = context.read<DocumentProvider>();
     final uid = auth.currentUser?.uid;
 
     if (uid == null) return;
 
-    final data = await docProvider.getDocument(uid, widget.docType);
+    final data = await docs.getDocument(uid, widget.docType);
 
     if (!mounted) return;
 
@@ -58,34 +63,56 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
     });
   }
 
+  Future<void> pickFile() async {
+    final picked = await FilePicker.platform.pickFiles(withData: true);
+    if (picked == null) return;
+
+    final file = picked.files.single;
+    filename = file.name;
+
+    if (kIsWeb) {
+      webBytes = file.bytes;
+    } else {
+      mobileFile = File(file.path!);
+    }
+
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthProvider>();
-    final docProvider = context.watch<DocumentProvider>();
+    final prov = context.watch<DocumentProvider>();
 
     final uid = auth.currentUser?.uid;
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text("User not logged in")));
+    }
 
-    /// --------------------------
-    /// FIXED STATUS LOGIC
-    /// --------------------------
+    if (loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // -------------------------
+    // STATUS LOGIC
+    // -------------------------
+    String status = "missing";
     final now = DateTime.now();
-    String status = "Missing";
 
     if (docData != null) {
-      status = docData!["status"] ?? "Missing";
+      status = docData!["status"]?.toString().toLowerCase() ?? "missing";
 
       if (docData?["expiration"] != null) {
         final exp = docData!["expiration"].toDate();
-
         if (exp.isBefore(now)) {
-          status = "Expired";
-        } else if (exp.isBefore(now.add(const Duration(days: 30)))) {
-          status = "Near Expiry";
+          status = "expired";
+        } else if (exp.difference(now).inDays <= 30) {
+          status = "near expiry";
         }
       }
     }
 
-    final isApproved = status.toLowerCase() == "approved";
+    final isApproved = status == "approved";
 
     return Scaffold(
       appBar: AppBar(
@@ -95,126 +122,79 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: uid == null
-          ? const Center(child: Text("User not logged in"))
-          : loading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
+
+      body: Padding(
         padding: const EdgeInsets.all(20),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              /// STATUS HEADER
-              const Text(
-                "Document Status",
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text("Document Status",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-
               _buildStatusBox(status),
 
               const SizedBox(height: 20),
 
-              /// FILE PREVIEW SECTION
-              const Text(
-                "Uploaded File",
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text("Uploaded File",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
 
               InkWell(
                 onTap: docData?["fileUrl"] != null
                     ? () => _openFileDialog(docData!["fileUrl"])
                     : null,
-                child: _buildDocumentPreview(),
+                child: _buildPreviewBox(),
               ),
 
               const SizedBox(height: 20),
 
-              /// EXPIRATION SECTION
-              if (_requiresExpiration(widget.docType))
+              if (expiryDocs.contains(widget.docType))
                 _buildExpirationSelector(),
 
               const SizedBox(height: 20),
 
-              /// VERIFIED → LOCK UPLOAD
               if (isApproved)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    "This document is already VERIFIED.\nRe-uploading is disabled.",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green),
-                  ),
-                ),
+                _buildApprovedNotice(),
 
               if (!isApproved) ...[
-                /// SELECT FILE BUTTON
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    final result = await FilePicker.platform
-                        .pickFiles(withData: true);
-
-                    if (result != null) {
-                      final file = result.files.single;
-
-                      if (file.path != null) {
-                        pickedFile = File(file.path!);
-                      } else {
-                        final temp = File(
-                            "/tmp/${file.name.replaceAll(' ', '_')}");
-                        await temp.writeAsBytes(file.bytes!);
-                        pickedFile = temp;
-                      }
-
-                      setState(() {});
-                    }
-                  },
-                  icon: const Icon(Icons.upload_file),
+                  onPressed: pickFile,
+                  icon: const Icon(Icons.upload),
                   label: const Text("Select File"),
                 ),
 
                 const SizedBox(height: 10),
 
-                /// UPLOAD BUTTON
                 ElevatedButton(
-                  onPressed: pickedFile == null
+                  onPressed: (mobileFile == null && webBytes == null)
                       ? null
                       : () async {
-                    final error = await docProvider.upload(
+                    final error = await prov.upload(
                       userId: uid,
-                      type: widget.docType,
-                      file: pickedFile!,
+                      docType: widget.docType,
+                      mobileFile: mobileFile,
+                      webBytes: webBytes,
+                      filename: filename,
                       expiration: expirationDate,
                     );
 
                     if (!mounted) return;
 
                     if (error != null) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(error)),
                       );
                     } else {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                              "File uploaded. Status: PROCESSING"),
+                          content: Text("File uploaded — processing"),
                         ),
                       );
                       loadDoc();
                     }
                   },
-                  child: docProvider.loading
+                  child: prov.loading
                       ? const CircularProgressIndicator()
                       : const Text("Upload"),
                 ),
@@ -226,21 +206,21 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
     );
   }
 
-  /// ---------------------------------------------------
-  /// STATUS BOX (UPDATED COLORS + NEW STATES)
-  /// ---------------------------------------------------
+  // -----------------------------------------------
+  // STATUS BOX
+  // -----------------------------------------------
   Widget _buildStatusBox(String status) {
     Color color;
 
-    switch (status.toLowerCase()) {
+    switch (status) {
       case "approved":
         color = Colors.green.withOpacity(0.25);
         break;
-      case "rejected":
-        color = Colors.red.withOpacity(0.25);
-        break;
       case "processing":
         color = Colors.orange.withOpacity(0.25);
+        break;
+      case "rejected":
+        color = Colors.red.withOpacity(0.25);
         break;
       case "expired":
         color = Colors.redAccent.withOpacity(0.25);
@@ -259,38 +239,34 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
         color: color,
       ),
       child: Text(
-        status.toLowerCase(),
+        status,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  /// ---------------------------------------------------
-  /// PREVIEW BOX
-  /// ---------------------------------------------------
-  Widget _buildDocumentPreview() {
-    if (pickedFile != null) {
-      return _previewBox(
-        pickedFile!.path.split('/').last,
-        "Local File (Replace)",
-      );
+  // -----------------------------------------------
+  // FILE PREVIEW
+  // -----------------------------------------------
+  Widget _buildPreviewBox() {
+    if (mobileFile != null) {
+      return _previewItem(mobileFile!.path.split("/").last, "Local File");
     }
 
-    if (docData == null || docData?["fileUrl"] == null) {
-      return _previewBox("No file uploaded", "");
+    if (docData?["fileUrl"] == null) {
+      return _previewItem("No file uploaded", "");
     }
 
-    final fileUrl = docData!["fileUrl"];
-    final fileName = fileUrl.toString().split("%2F").last.split("?").first;
+    final url = docData!["fileUrl"];
+    final name = url.toString().split("%2F").last.split("?").first;
 
-    return _previewBox(fileName, "Tap to view");
+    return _previewItem(name, "Tap to view");
   }
 
-  Widget _previewBox(String text, String subtitle) {
+  Widget _previewItem(String title, String subtitle) {
     return Container(
-      padding: const EdgeInsets.all(12),
       height: 150,
-      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
@@ -299,102 +275,51 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(text,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(title,
+                style:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             if (subtitle.isNotEmpty)
               Text(subtitle,
-                  style:
-                  const TextStyle(fontSize: 12, color: Colors.grey)),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       ),
     );
   }
 
-  bool _requiresExpiration(String docType) {
-    return expiryDocs.contains(docType);
+  // -----------------------------------------------
+  // APPROVED NOTICE
+  // -----------------------------------------------
+  Widget _buildApprovedNotice() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        "This document is VERIFIED.\nRe-uploading is disabled.",
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.green,
+        ),
+      ),
+    );
   }
 
-  /// ---------------------------------------------------
-  /// EXPIRATION SELECTOR
-  /// ---------------------------------------------------
+  // -----------------------------------------------
+  // EXPIRATION SELECTOR
+  // -----------------------------------------------
   Widget _buildExpirationSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Expiration (Month & Year)",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        const Text("Expiration (Month / Year)",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
 
         ElevatedButton(
-          onPressed: () async {
-            final now = DateTime.now();
-
-            int selectedMonth = expirationDate?.month ?? now.month;
-            int selectedYear = expirationDate?.year ?? now.year;
-
-            await showDialog(
-              context: context,
-              builder: (_) {
-                return AlertDialog(
-                  title: const Text("Select Expiration"),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButton<int>(
-                        value: selectedMonth,
-                        items: List.generate(
-                          12,
-                              (i) => DropdownMenuItem(
-                            value: i + 1,
-                            child: Text(_monthName(i + 1)),
-                          ),
-                        ),
-                        onChanged: (v) {
-                          setState(() => selectedMonth = v!);
-                        },
-                      ),
-                      DropdownButton<int>(
-                        value: selectedYear,
-                        items: List.generate(
-                          20,
-                              (i) => DropdownMenuItem(
-                            value: now.year + i,
-                            child: Text("${now.year + i}"),
-                          ),
-                        ),
-                        onChanged: (v) {
-                          setState(() => selectedYear = v!);
-                        },
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Cancel"),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final lastDay = DateTime(
-                            selectedYear, selectedMonth + 1, 0);
-
-                        setState(() {
-                          expirationDate = lastDay;
-                        });
-
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Save"),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+          onPressed: () => _openExpirationDialog(),
           child: Text(
             expirationDate == null
                 ? "Select Expiration"
@@ -405,8 +330,70 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
     );
   }
 
+  void _openExpirationDialog() {
+    final now = DateTime.now();
+
+    int month = expirationDate?.month ?? now.month;
+    int year = expirationDate?.year ?? now.year;
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("Select Expiration"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButton<int>(
+                value: month,
+                items: List.generate(
+                  12,
+                      (i) => DropdownMenuItem(
+                    value: i + 1,
+                    child: Text(_monthName(i + 1)),
+                  ),
+                ),
+                onChanged: (v) {
+                  setState(() => month = v!);
+                },
+              ),
+              DropdownButton<int>(
+                value: year,
+                items: List.generate(
+                  20,
+                      (i) => DropdownMenuItem(
+                    value: now.year + i,
+                    child: Text("${now.year + i}"),
+                  ),
+                ),
+                onChanged: (v) {
+                  setState(() => year = v!);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  expirationDate = DateTime(year, month, 28);
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   String _monthName(int m) {
-    const names = [
+    const list = [
       "January",
       "February",
       "March",
@@ -420,79 +407,76 @@ class _DocumentDetailsScreenState extends State<DocumentDetailsScreen> {
       "November",
       "December"
     ];
-    return names[m - 1];
+    return list[m - 1];
   }
 
-  /// IMAGE VIEWER
-  Widget _buildImageViewer(String url) {
-    return PhotoView(
-      imageProvider: NetworkImage(url),
-      backgroundDecoration: const BoxDecoration(color: Colors.black),
-      loadingBuilder: (_, __) =>
-      const Center(child: CircularProgressIndicator()),
-    );
-  }
+  // -----------------------------------------------
+  // FILE VIEWERS
+  // -----------------------------------------------
+  void _openFileDialog(String url) {
+    print(url);
 
-  /// PDF VIEWER
-  Widget _buildPdfViewer(String url) {
-    return FutureBuilder<File>(
-      future: _downloadPDF(url),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          );
-        }
 
-        return PDFView(
-          filePath: snapshot.data!.path,
-          swipeHorizontal: true,
-          nightMode: true,
+    final isPdf = url.toLowerCase().endsWith(".pdf");
+
+
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: isPdf ? _buildPdfViewer(url) : _buildImageViewer(url),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.85),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.black),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  Future<File> _downloadPDF(String url) async {
-    final bytes = await http.get(Uri.parse(url));
-    final tempDir = await getTemporaryDirectory();
-    final tempFile = File("${tempDir.path}/temp_doc.pdf");
-
-    await tempFile.writeAsBytes(bytes.bodyBytes);
-    return tempFile;
+  Widget _buildImageViewer(String url) {
+    return PhotoView(
+      imageProvider: NetworkImage(url),
+      backgroundDecoration: const BoxDecoration(color: Colors.black),
+    );
   }
 
-  void _openFileDialog(String url) {
-    final isPDF = url.toLowerCase().endsWith(".pdf");
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.all(10),
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: isPDF
-                  ? _buildPdfViewer(url)
-                  : _buildImageViewer(url),
-            ),
-
-            Positioned(
-              right: 10,
-              top: 10,
-              child: CircleAvatar(
-                backgroundColor: Colors.white.withOpacity(0.8),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildPdfViewer(String url) {
+    return FutureBuilder<File>(
+      future: _downloadPDF(url),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return PDFView(filePath: snap.data!.path, swipeHorizontal: true);
+      },
     );
+  }
+
+  Future<File> _downloadPDF(String url) async {
+    final data = await http.get(Uri.parse(url));
+    final dir = await getTemporaryDirectory();
+
+    final file = File("${dir.path}/temp.pdf");
+    await file.writeAsBytes(data.bodyBytes);
+
+    return file;
   }
 }
