@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/document_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/document_provider.dart';
 
 class UploadScreen extends StatefulWidget {
   final String docType;

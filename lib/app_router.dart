@@ -1,43 +1,35 @@
-import 'package:dignitywithcare/screens/document_details_screen.dart';
+import 'package:dignitywithcare/router/startup_redirect.dart';
+
+import 'package:dignitywithcare/screens/admin/admin_screen.dart';
+import 'package:dignitywithcare/screens/admin/manage_business/manage_business.dart';
+import 'package:dignitywithcare/screens/admin/manage_clients/manage_clients.dart';
+import 'package:dignitywithcare/screens/admin/manage_reports/manage_reports.dart';
+import 'package:dignitywithcare/screens/admin/manage_users/admin_user_document_dashboard_screen.dart';
+import 'package:dignitywithcare/screens/admin/manage_users/admin_user_document_details_screen.dart';
+import 'package:dignitywithcare/screens/admin/manage_users/manage_users.dart';
+
+import 'package:dignitywithcare/screens/users/dashboard_screen.dart';
+import 'package:dignitywithcare/screens/shared%20screen/document_details_screen.dart';
+
+import 'package:dignitywithcare/screens/authentication/login_screen.dart';
+import 'package:dignitywithcare/screens/authentication/register_business_screen.dart';
+import 'package:dignitywithcare/screens/authentication/register_screen.dart';
 import 'package:flutter/material.dart';
+
+import 'package:get_storage/get_storage.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../screens/login_screen.dart';
-import '../screens/register_screen.dart';
-import '../screens/dashboard_screen.dart';
-import 'app_router_refresh.dart';
+
 import 'navigator_key.dart';
 
 GoRouter appRouter = GoRouter(
   debugLogDiagnostics: true,
   navigatorKey: navigatorKey,
-  // 👇 VERY IMPORTANT — tells GoRouter to refresh when AuthProvider notifies
-  refreshListenable: AuthRefresh(),
-
-  redirect: (context, state) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-
-    if (!auth.initialized) return null;
-
-    final loggedIn = auth.isLoggedIn;
-
-    final isAuthRoute =
-        state.matchedLocation == "/login" ||
-            state.matchedLocation == "/register";
-
-    if (!loggedIn && !isAuthRoute) {
-      return "/login";
-    }
-
-    if (loggedIn && isAuthRoute) {
-      return "/";
-    }
-
-    return null;
-  },
+  initialLocation: StartupRedirect.getInitialRoute(),
 
   routes: [
+    /// ================================
+    /// PUBLIC / USER ROUTES
+    /// ================================
     GoRoute(
       path: '/',
       builder: (_, __) => const DashboardScreen(),
@@ -51,10 +43,126 @@ GoRouter appRouter = GoRouter(
       builder: (_, __) => const RegisterScreen(),
     ),
     GoRoute(
+      path: '/register-business',
+      builder: (_, __) => const RegisterBusinessScreen(),
+    ),
+    GoRoute(
       path: '/document-details',
       builder: (_, state) {
         final docType = state.uri.queryParameters["docType"]!;
         return DocumentDetailsScreen(docType: docType);
+      },
+    ),
+
+    /// ================================
+    /// ADMIN DASHBOARD (Protected)
+    /// ================================
+    GoRoute(
+      path: '/admin',
+      builder: (_, __) {
+        final profile =
+        GetStorage().read("profile") as Map<String, dynamic>?;
+
+        final role = profile?["role"];
+
+        if (role == "super_admin" || role == "admin") {
+          return const AdminDashboardScreen();
+        }
+
+        return const DashboardScreen(); // Unauthorized fallback
+      },
+    ),
+
+    /// ================================
+    /// ADMIN TOOLS (Protected by each screen)
+    /// ================================
+    GoRoute(
+      path: '/admin/businesses',
+      builder: (_, __) {
+        final role =
+        (GetStorage().read("profile") as Map?)?["role"];
+
+        if (role == "super_admin" || role == "admin") {
+          return const ManageBusinessesScreen();
+        }
+
+        return const DashboardScreen();
+      },
+    ),
+    GoRoute(
+      path: '/admin/users',
+      builder: (_, __) {
+        final role =
+        (GetStorage().read("profile") as Map?)?["role"];
+
+        if (role == "super_admin" || role == "admin") {
+          return const ManageUsersScreen();
+        }
+
+        return const DashboardScreen();
+      },
+    ),
+    GoRoute(
+      path: '/admin/clients',
+      builder: (_, __) {
+        final role =
+        (GetStorage().read("profile") as Map?)?["role"];
+
+        if (role == "super_admin" || role == "admin") {
+          return const ManageClientsScreen();
+        }
+
+        return const DashboardScreen();
+      },
+    ),
+    GoRoute(
+      path: "/admin/user-docs",
+      builder: (_, state) {
+        final name = state.uri.queryParameters["name"];
+        final email = state.uri.queryParameters["email"];
+
+        if (name == null || email == null) {
+          return const Scaffold(
+            body: Center(child: Text("Missing user data.")),
+          );
+        }
+
+        return AdminUserDocumentDashboardScreen(
+          fullName: name,
+          email: email,
+        );
+      },
+    ),
+
+
+
+    GoRoute(
+      path: "/admin/user-doc-details",
+      builder: (_, state) {
+        final userId = state.uri.queryParameters["userId"]!;
+        final fullName = state.uri.queryParameters["fullName"]!;
+        final email = state.uri.queryParameters["email"]!;
+        final docType = state.uri.queryParameters["docType"]!;
+        return AdminUserDocumentDetailsScreen(
+          email: email,
+          fullName: fullName,
+          userId: userId,
+          docType: docType,
+        );
+      },
+    ),
+
+    GoRoute(
+      path: '/admin/reports',
+      builder: (_, __) {
+        final role =
+        (GetStorage().read("profile") as Map?)?["role"];
+
+        if (role == "super_admin" || role == "admin") {
+          return const AdminReportsScreen();
+        }
+
+        return const DashboardScreen();
       },
     ),
   ],

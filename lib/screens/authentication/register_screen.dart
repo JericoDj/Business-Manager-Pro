@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -18,10 +18,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final dateOfBirth = TextEditingController();
   final password = TextEditingController();
   final confirmPassword = TextEditingController();
+  final companyCode = TextEditingController();
 
   bool loading = false;
   bool passwordVisible = false;
   bool confirmPasswordVisible = false;
+
+  String selectedRole = "user";
+  final roles = ["user", "admin", "super_admin"];
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +42,60 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    const Text("Create Your Account",
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const Text(
+                      "Create Your Account",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
                     const SizedBox(height: 20),
 
-                    TextField(controller: name, decoration: const InputDecoration(labelText: "Full Name")),
-                    TextField(controller: phone, decoration: const InputDecoration(labelText: "Phone Number")),
-                    TextField(controller: email, decoration: const InputDecoration(labelText: "Email Address")),
-                    TextField(controller: homeAddress, decoration: const InputDecoration(labelText: "Home Address (US Format)")),
+                    TextField(
+                      controller: name,
+                      decoration: const InputDecoration(labelText: "Full Name"),
+                    ),
+
+                    TextField(
+                      controller: phone,
+                      decoration: const InputDecoration(labelText: "Phone Number"),
+                    ),
+
+                    TextField(
+                      controller: email,
+                      decoration: const InputDecoration(labelText: "Email Address"),
+                    ),
+
+                    TextField(
+                      controller: homeAddress,
+                      decoration: const InputDecoration(labelText: "Home Address (US Format)"),
+                    ),
+
+                    TextField(
+                      controller: companyCode,
+                      decoration: const InputDecoration(labelText: "Company Code"),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    DropdownButtonFormField(
+                      value: selectedRole,
+                      decoration: const InputDecoration(
+                        labelText: "Role",
+                      ),
+                      items: roles.map((role) {
+                        return DropdownMenuItem(
+                          value: role,
+                          child: Text(role.toUpperCase()),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() => selectedRole = val!);
+                      },
+                    ),
+
+                    const SizedBox(height: 10),
 
                     TextField(
                       controller: dateOfBirth,
@@ -62,7 +112,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           initialDate: DateTime(2000),
                         );
                         if (picked != null) {
-                          dateOfBirth.text = "${picked.month}/${picked.day}/${picked.year}";
+                          dateOfBirth.text =
+                          "${picked.month}/${picked.day}/${picked.year}";
                         }
                       },
                     ),
@@ -95,13 +146,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     const SizedBox(height: 20),
 
-                    ElevatedButton(
-                      onPressed: loading
+                    GestureDetector(
+                      onTap: loading
                           ? null
                           : () async {
                         if (password.text.trim() != confirmPassword.text.trim()) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Passwords do not match")),
+                            const SnackBar(
+                              content: Text("Passwords do not match"),
+                            ),
                           );
                           return;
                         }
@@ -115,6 +168,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           homeAddress: homeAddress.text.trim(),
                           dateOfBirth: dateOfBirth.text.trim(),
                           password: password.text.trim(),
+                          role: selectedRole,
+                          companyCode: companyCode.text.trim(),
                         );
 
                         if (!mounted) return;
@@ -129,10 +184,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         context.go("/");
                       },
-                      child: loading
-                          ? const CircularProgressIndicator()
-                          : const Text("Register"),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: loading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                          "Register",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ),
                     ),
+
+                    const SizedBox(height: 12),
 
                     TextButton(
                       onPressed: () => context.go("/login"),

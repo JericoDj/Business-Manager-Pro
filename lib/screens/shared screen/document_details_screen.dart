@@ -10,8 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
-import '../providers/auth_provider.dart';
-import '../providers/document_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/document_provider.dart';
 
 class DocumentDetailsScreen extends StatefulWidget {
   final String docType;

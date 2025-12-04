@@ -22,7 +22,7 @@ class DocumentController {
         .replaceAll(" ", "_");
   }
 
-  Future<List<Map<String, dynamic>>> getUserDocuments(String uid) async {
+  Future<List<Map<String, dynamic>>> getUserDocuments(String? uid) async {
     final snap = await _firestore
         .collection("users")
         .doc(uid)
@@ -36,14 +36,33 @@ class DocumentController {
   Future<Map<String, dynamic>?> getDocument(String uid, String docType) async {
     final key = mapDocNameToKey(docType);
 
+    String? userDocId = await findUserDocIdByUid(uid);
+
     final doc = await _firestore
         .collection("users")
-        .doc(uid)
+        .doc(userDocId)
         .collection("documents")
         .doc(key)
         .get();
 
     return doc.exists ? doc.data() : null;
+  }
+
+  Future<String?> findUserDocIdByUid(String uid) async {
+    if (uid.isEmpty) return null;
+
+    final snap = await _firestore
+        .collection("users")
+        .where("uid", isEqualTo: uid)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) {
+
+      return null; // user not found
+    }
+
+    return snap.docs.first.id; // return Firestore document ID
   }
 
   /// Upload document (supports mobile AND web)
@@ -56,12 +75,31 @@ class DocumentController {
     DateTime? expiration,
   }) async {
     try {
+      // ----------------------------------------------------
+      // 1️⃣ FIND ACTUAL FIRESTORE USER DOCUMENT ID
+      // ----------------------------------------------------
+      String? userDocId = await findUserDocIdByUid(uid);
+
+      print (userDocId);
+
+      if (userDocId == null) {
+        return "User not found in Firestore.";
+      }
+
+
+      // ----------------------------------------------------
+      // 2️⃣ STORAGE KEY AND PATH
+      // ----------------------------------------------------
       final key = mapDocNameToKey(docType);
       final ext = filename?.split('.').last ?? "jpg";
 
-      final ref = _storage.ref("users/$uid/documents/$key/file.$ext");
 
-      /// Upload file depending on platform
+
+      final ref = _storage.ref("users/$userDocId/documents/$key/file.$ext");
+      print(ref);
+      // ----------------------------------------------------
+      // 3️⃣ UPLOAD THE FILE
+      // ----------------------------------------------------
       if (webBytes != null) {
         await ref.putData(webBytes);
       } else if (mobilePath != null) {
@@ -71,12 +109,14 @@ class DocumentController {
         return "No file data provided";
       }
 
-      /// Force correct Firebase Storage bucket download URL
       final downloadUrl = await ref.getDownloadURL();
 
+      // ----------------------------------------------------
+      // 4️⃣ UPDATE FIRESTORE DOCUMENT
+      // ----------------------------------------------------
       await _firestore
           .collection("users")
-          .doc(uid)
+          .doc(userDocId)
           .collection("documents")
           .doc(key)
           .set({
@@ -87,11 +127,76 @@ class DocumentController {
         "expiration": expiration,
       }, SetOptions(merge: true));
 
-      return null; // success
+      return null;
+
     } catch (e) {
       return e.toString();
     }
   }
+
+  Future<String?> uploadUserDocument({
+    required String userDocId,
+    required String docType,
+    Uint8List? webBytes,
+    String? filename,
+    String? mobilePath,
+    DateTime? expiration,
+  }) async {
+    try {
+      // ----------------------------------------------------
+      // 1️⃣ FIND ACTUAL FIRESTORE USER DOCUMENT ID
+      // ----------------------------------------------------
+
+
+
+      // ----------------------------------------------------
+      // 2️⃣ STORAGE KEY AND PATH
+      // ----------------------------------------------------
+      final key = mapDocNameToKey(docType);
+      final ext = filename?.split('.').last ?? "jpg";
+
+
+
+      final ref = _storage.ref("users/$userDocId/documents/$key/file.$ext");
+      print(ref);
+      // ----------------------------------------------------
+      // 3️⃣ UPLOAD THE FILE
+      // ----------------------------------------------------
+      if (webBytes != null) {
+        await ref.putData(webBytes);
+      } else if (mobilePath != null) {
+        final file = File(mobilePath);
+        await ref.putFile(file);
+      } else {
+        return "No file data provided";
+      }
+
+      final downloadUrl = await ref.getDownloadURL();
+
+      // ----------------------------------------------------
+      // 4️⃣ UPDATE FIRESTORE DOCUMENT
+      // ----------------------------------------------------
+      await _firestore
+          .collection("users")
+          .doc(userDocId)
+          .collection("documents")
+          .doc(key)
+          .set({
+        "docType": docType,
+        "fileUrl": downloadUrl,
+        "status": "processing",
+        "uploadedAt": FieldValue.serverTimestamp(),
+        "expiration": expiration,
+      }, SetOptions(merge: true));
+
+      return null;
+
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+
 
   /// Update status
   Future<void> updateStatus(String uid, String docType, String status) async {

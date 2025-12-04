@@ -75,7 +75,6 @@ class AuthProvider extends ChangeNotifier {
   // LOAD USER PROFILE FROM FIRESTORE
   Future<void> loadUserProfile(String uid) async {
     final doc = await _firestore.collection("users").doc(uid).get();
-
     if (doc.exists) {
       final data = Map<String, dynamic>.from(doc.data()!);
 
@@ -104,6 +103,77 @@ class AuthProvider extends ChangeNotifier {
       return e.toString();
     }
   }
+  Future<String?> createBusinessAndAdmin({
+    required String companyName,
+    required String businessEmail,
+    required String companyCode,
+    required String adminName,
+    required String adminPhone,
+    required String adminAddress,
+    required String adminBirthDate,
+    required String password,
+  }) async {
+    try {
+      // 1️⃣ Check if email already exists (Auth)
+      final methods =
+      await FirebaseAuth.instance.fetchSignInMethodsForEmail(businessEmail);
+
+      if (methods.isNotEmpty) return "This email already exists.";
+
+      // 2️⃣ Check if company code is unique
+      final existing = await _firestore
+          .collection("businesses")
+          .where("companyCode", isEqualTo: companyCode)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) return "Company code already exists.";
+
+
+      // 3️⃣ Register admin user in Firebase Auth
+      final user = await _repo.register(businessEmail, password);
+      if (user == null) return "Failed to create admin user.";
+
+      currentUser = user;
+      _storage.write("uid", user.uid);
+
+      // 4️⃣ Create Admin Profile WITH FINAL businessId = companyCode
+      final profile = {
+        "uid": user.uid,
+        "name": adminName,
+        "phone": adminPhone,
+        "email": businessEmail,
+        "homeAddress": adminAddress,
+        "dateOfBirth": adminBirthDate,
+        "role": "super_admin",
+        "businessId": companyCode,   // final, no need to update later
+        "createdAt": FieldValue.serverTimestamp(),
+      };
+
+      await _firestore.collection("users").doc(user.uid).set(profile);
+      print("heres the profile");
+      print(profile);
+      print("heres the profile");
+      // Save to local storage
+      await loadUserProfile(user.uid);
+
+      notifyListeners();
+      print(currentUser);
+
+      // 5️⃣ Create the business
+      await _firestore.collection("businesses").add({
+        "companyName": companyName,
+        "businessEmail": businessEmail,
+        "companyCode": companyCode,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+
 
   // REGISTER USER AND SAVE PROFILE
   Future<String?> registerUser({
@@ -113,15 +183,59 @@ class AuthProvider extends ChangeNotifier {
     required String homeAddress,
     required String dateOfBirth,
     required String password,
+    required String role,
+    required String companyCode,
   }) async {
     try {
+      // ----------------------------------------------------
+      // 1️⃣ CHECK IF COMPANY EXISTS
+      // ----------------------------------------------------
+      final companySnap = await _firestore
+          .collection("businesses")
+          .where("companyCode", isEqualTo: companyCode)
+          .limit(1)
+          .get();
+
+      if (companySnap.docs.isEmpty) {
+        return "Invalid company code.";
+      }
+
+      final companyId = companySnap.docs.first.id;
+
+
+      // ----------------------------------------------------
+      // 2️⃣ CHECK IF USER EXISTS UNDER THIS COMPANY
+      // ----------------------------------------------------
+      final existingUserSnap = await _firestore
+          .collection("users")
+          .where("businessId", isEqualTo: companyCode)
+          .where("name", isEqualTo: name)
+          .where("email", isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (existingUserSnap.docs.isEmpty) {
+        // ❌ DO NOT ALLOW REGISTRATION
+        return "You are not registered under this company. Contact your admin.";
+      }
+
+      // ✔ User exists, upgrade their record
+      final userDocRef = existingUserSnap.docs.first.reference;
+
+
+      // ----------------------------------------------------
+      // 3️⃣ REGISTER USER WITH FIREBASE AUTH
+      // ----------------------------------------------------
       final user = await _repo.register(email, password);
       if (user == null) return "Registration failed.";
 
       currentUser = user;
       _storage.write("uid", user.uid);
 
-      // Firestore profile
+
+      // ----------------------------------------------------
+      // 4️⃣ UPDATE EXISTING USER DOCUMENT
+      // ----------------------------------------------------
       final profileData = {
         "uid": user.uid,
         "name": name,
@@ -129,13 +243,18 @@ class AuthProvider extends ChangeNotifier {
         "email": email,
         "homeAddress": homeAddress,
         "dateOfBirth": dateOfBirth,
+        "role": role,
+        "businessId": companyCode,
         "createdAt": FieldValue.serverTimestamp(),
       };
 
-      await _firestore.collection("users").doc(user.uid).set(profileData);
+      await userDocRef.set(profileData, SetOptions(merge: true));
 
-      // Fetch and sanitize stored doc (to get real Timestamp)
-      final savedDoc = await _firestore.collection("users").doc(user.uid).get();
+
+      // ----------------------------------------------------
+      // 5️⃣ SAVE PROFILE LOCALLY
+      // ----------------------------------------------------
+      final savedDoc = await userDocRef.get();
       final savedData = Map<String, dynamic>.from(savedDoc.data()!);
 
       final safeData = _sanitizeForStorage(savedData);
@@ -145,10 +264,13 @@ class AuthProvider extends ChangeNotifier {
 
       notifyListeners();
       return null;
+
     } catch (e) {
       return e.toString();
     }
   }
+
+
 
   // LOGOUT
   Future<void> logout() async {
