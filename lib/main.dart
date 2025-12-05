@@ -1,10 +1,12 @@
-import 'package:dignitywithcare/providers/client_provider.dart';
-import 'package:dignitywithcare/providers/document_provider.dart';
-import 'package:dignitywithcare/providers/manage_user_provider.dart';
-import 'package:dignitywithcare/providers/notes_provider.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:my_business_manager/providers/client_provider.dart' show ClientProvider;
+import 'package:my_business_manager/providers/document_provider.dart' show DocumentProvider;
+import 'package:my_business_manager/providers/manage_user_provider.dart' show ManageUserProvider;
+import 'package:my_business_manager/utils/my_colors.dart';
 import 'package:provider/provider.dart';
 import 'app_router.dart';
 import 'firebase_options.dart';
@@ -60,14 +62,60 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+
       theme: ThemeData(
-        primaryColor: const Color(0xFF6200EE),
-        colorScheme: ColorScheme.fromSwatch().copyWith(
-          secondary: const Color(0xFF03DAC6),
+        primaryColor: MyColors.darkShade,
+        scaffoldBackgroundColor: MyColors.softWhite,
+
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: MyColors.darkShade,
+          primary: MyColors.darkShade,
+          secondary: MyColors.accent,
+          background: MyColors.lightShade,
+        ),
+
+        // ---------------------------
+        // GLOBAL GOOGLE FONTS (ROBOTO)
+        // ---------------------------
+        textTheme: GoogleFonts.notoSerifJpTextTheme().copyWith(
+          titleLarge: GoogleFonts.notoSerifJp(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+          bodyLarge: GoogleFonts.notoSerifJp(fontSize: 16),
+          bodyMedium: GoogleFonts.notoSerifJp(fontSize: 14),
+        ),
+
+        // ---------------------------
+        // TEXTFIELD THEMES USING ROBOTO
+        // ---------------------------
+        inputDecorationTheme: InputDecorationTheme(
+          labelStyle: GoogleFonts.notoSerifJp(
+            fontSize: 14,
+          ),
+          hintStyle: GoogleFonts.notoSerifJp(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+
+        // BUTTON TEXTS ALSO USE ROBOTO
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            textStyle: GoogleFonts.sourceCodePro(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
-      debugShowCheckedModeBanner: false,
+
       routerConfig: appRouter,
     );
   }
 }
+

@@ -24,14 +24,15 @@ class DefaultFirebaseOptions {
 
   // 🌐 WEB
   static FirebaseOptions get web => FirebaseOptions(
-    apiKey: dotenv.env['FIREBASE_WEB_API_KEY']!,
-    appId: dotenv.env['FIREBASE_WEB_APP_ID']!,
-    messagingSenderId: dotenv.env['FIREBASE_WEB_SENDER']!,
-    projectId: dotenv.env['FIREBASE_WEB_PROJECT_ID']!,
+    apiKey: dotenv.env['FIREBASE_WEB_API_KEY'] ?? "",
+    appId: dotenv.env['FIREBASE_WEB_APP_ID'] ?? "",
+    messagingSenderId: dotenv.env['FIREBASE_WEB_SENDER'] ?? "",
+    projectId: dotenv.env['FIREBASE_WEB_PROJECT_ID'] ?? "",
     authDomain: dotenv.env['FIREBASE_WEB_AUTH_DOMAIN'],
     storageBucket: dotenv.env['FIREBASE_WEB_STORAGE'],
     measurementId: dotenv.env['FIREBASE_WEB_MEASUREMENT_ID'],
   );
+
 
   // 🤖 ANDROID
   static FirebaseOptions get android => FirebaseOptions(

@@ -1,5 +1,8 @@
+
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_business_manager/utils/my_colors.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -18,12 +21,17 @@ class AdminDashboardScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: MyColors.darkShade, width: 1),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: GoogleFonts.roboto(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
         ),
       ),
     );
@@ -34,98 +42,132 @@ class AdminDashboardScreen extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Admin Dashboard"),
-      ),
+      backgroundColor: Colors.white,
+
       body: Center(
-        child: SizedBox(
-          width: 400,
-          child: Card(
-            elevation: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Welcome, Administrator!",
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // 🔵 Manage Businesses
-                  // adminButton(
-                  //   label: "Manage Businesses",
-                  //   color: Colors.blue,
-                  //   onTap: () {
-                  //     context.push("/admin/businesses");
-                  //   },
-                  // ),
-
-                  const SizedBox(height: 12),
-
-                  // 🟢 Manage Users
-                  adminButton(
-                    label: "Manage Users",
-                    color: Colors.green,
-                    onTap: () {
-                      context.push("/admin/users");
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // 🟣 Manage Clients
-                  adminButton(
-                    label: "Manage Clients",
-                    color: Colors.indigo,
-                    onTap: () {
-                      context.push("/admin/clients");
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // 🟠 View Reports
-                  // adminButton(
-                  //   label: "My Notes",
-                  //   color: Colors.orange,
-                  //   onTap: () {
-                  //     context.push("/admin/notes");
-                  //   },
-                  // ),
-
-                  const SizedBox(height: 20),
-                  const Divider(height: 30),
-
-                  // 🔴 Logout
-                  GestureDetector(
-                    onTap: () async {
-                      await auth.logout();
-                      if (!context.mounted) return;
-                      context.go("/login");
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ),
-                  ),
-
-                ],
+        child: Container(
+          width: 420,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: MyColors.darkShade, width: 1.4),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                offset: const Offset(0, 4),
+                blurRadius: 8,
               ),
+            ],
+          ),
+
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+
+                // ------------------ HERO LOGO ------------------
+                Hero(
+                  tag: "app_logo",
+                  child: Container(
+                    height: MediaQuery.of(context).size.height * 0.20,
+                    child: Image.asset(
+                      "assets/icons/app_logo_nobackground.png",
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ------------------ APP NAME ------------------
+                Text(
+                  "My Business Manager",
+                  style: GoogleFonts.roboto(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: MyColors.darkShade,
+                  ),
+                ),
+
+                // ------------------ TAGLINE ------------------
+                Text(
+                  "Smart Tools for Modern Businesses",
+                  style: GoogleFonts.roboto(
+                    fontSize: 14,
+                    color: MyColors.darkShade.withOpacity(0.8),
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                Text(
+                  "Admin Dashboard",
+                  style: GoogleFonts.roboto(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: MyColors.darkShade,
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                // 🟢 Manage Users
+                adminButton(
+                  label: "Manage Users",
+                  color: MyColors.darkShade,
+                  onTap: () => context.push("/admin/users"),
+                ),
+
+                const SizedBox(height: 12),
+
+                // 🟣 Manage Clients
+                adminButton(
+                  label: "Manage Clients",
+                  color: MyColors.accent,
+                  onTap: () => context.push("/admin/clients"),
+                ),
+
+                const SizedBox(height: 12),
+
+                // (Optional future section)
+                // adminButton(
+                //   label: "My Notes",
+                //   color: Colors.orange,
+                //   onTap: () => context.push("/admin/notes"),
+                // ),
+
+                const SizedBox(height: 25),
+                const Divider(),
+
+                // ------------------ LOGOUT BUTTON ------------------
+                GestureDetector(
+                  onTap: () async {
+                    await auth.logout();
+                    if (!context.mounted) return;
+                    context.go("/login");
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.shade700, width: 1),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      "Logout",
+                      style: GoogleFonts.roboto(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+
+              ],
             ),
           ),
         ),

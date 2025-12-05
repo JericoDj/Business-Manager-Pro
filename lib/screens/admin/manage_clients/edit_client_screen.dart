@@ -1,6 +1,10 @@
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/client_provider.dart';
+import '../../../utils/my_colors.dart';
 
 class EditClientScreen extends StatefulWidget {
   final Map<String, dynamic> client;
@@ -38,50 +42,68 @@ class _EditClientScreenState extends State<EditClientScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<ClientProvider>();
 
+    final width = MediaQuery.of(context).size.width * (kIsWeb ? 0.60 : 0.90);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Edit Client")),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _input("Full Name", name),
-              _input("Address", address),
-              _input("Contact Number", contact),
-              _input("Email", email),
-              _input("Age", age, keyboard: TextInputType.number),
-              _input("Notes (Optional)", notes, maxLines: 3),
+      appBar: AppBar(
+        title: const Text("Edit Client"),
+        backgroundColor: MyColors.darkShade,
+        foregroundColor: Colors.white,
+      ),
 
-              const SizedBox(height: 20),
+      body: Center(
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: MyColors.darkShade),
+            borderRadius: BorderRadius.circular(16),
+          ),
 
-              ElevatedButton(
-                onPressed: () async {
-                  if (!_formKey.currentState!.validate()) return;
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _input("Full Name", name),
+                  _input("Address", address),
+                  _input("Contact Number", contact),
+                  _input("Email", email),
+                  _input("Age", age, keyboard: TextInputType.number),
+                  _input("Notes (Optional)", notes, maxLines: 3),
 
-                  final error = await provider.updateClient(
-                    widget.client["id"],
-                    name: name.text,
-                    address: address.text,
-                    contact: contact.text,
-                    email: email.text,
-                    age: int.parse(age.text),
-                    notes: notes.text.isEmpty ? null : notes.text,
-                  );
+                  const SizedBox(height: 20),
 
-                  if (error == null) {
-                    Navigator.pop(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(error)),
-                    );
-                  }
-                },
-                child: provider.isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text("Save Changes"),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: MyColors.darkShade,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
+                    ),
+                    onPressed: () async {
+                      if (!_formKey.currentState!.validate()) return;
+
+                      final error = await provider.updateClient(
+                        widget.client["id"],
+                        name: name.text,
+                        address: address.text,
+                        contact: contact.text,
+                        email: email.text,
+                        age: int.parse(age.text),
+                        notes: notes.text,
+                      );
+
+                      if (error == null) Navigator.pop(context);
+                    },
+                    child: provider.isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                        style: TextStyle(color: Colors.white),
+                        "Save Changes"),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -99,6 +121,7 @@ class _EditClientScreenState extends State<EditClientScreen> {
         validator: (v) => v!.isEmpty ? "$label required" : null,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: GoogleFonts.roboto(),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),

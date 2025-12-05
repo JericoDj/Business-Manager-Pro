@@ -1,33 +1,32 @@
-import 'package:dignitywithcare/router/startup_redirect.dart';
 
-import 'package:dignitywithcare/screens/admin/admin_screen.dart';
-import 'package:dignitywithcare/screens/admin/manage_business/manage_business.dart';
-import 'package:dignitywithcare/screens/admin/manage_clients/manage_clients.dart';
-import 'package:dignitywithcare/screens/admin/manage_notes/manage_notes.dart';
-
-import 'package:dignitywithcare/screens/admin/manage_users/admin_user_document_dashboard_screen.dart';
-import 'package:dignitywithcare/screens/admin/manage_users/admin_user_document_details_screen.dart';
-import 'package:dignitywithcare/screens/admin/manage_users/manage_users.dart';
-
-import 'package:dignitywithcare/screens/users/dashboard_screen.dart';
-import 'package:dignitywithcare/screens/shared%20screen/document_details_screen.dart';
-
-import 'package:dignitywithcare/screens/authentication/login_screen.dart';
-import 'package:dignitywithcare/screens/authentication/register_business_screen.dart';
-import 'package:dignitywithcare/screens/authentication/register_screen.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get_storage/get_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:my_business_manager/router/startup_redirect.dart' show StartupRedirect;
+import 'package:my_business_manager/screens/admin/admin_screen.dart';
+import 'package:my_business_manager/screens/admin/manage_business/manage_business.dart';
+import 'package:my_business_manager/screens/admin/manage_clients/manage_clients.dart';
+import 'package:my_business_manager/screens/admin/manage_notes/manage_notes.dart' show MyNotesScreen;
+import 'package:my_business_manager/screens/admin/manage_users/admin_user_document_details_screen.dart' show AdminUserDocumentDetailsScreen;
+import 'package:my_business_manager/screens/admin/manage_users/manage_users.dart';
+import 'package:my_business_manager/screens/authentication/forgot_password.dart' show ForgotPasswordScreen;
+import 'package:my_business_manager/screens/authentication/login_screen.dart' show LoginScreen;
+import 'package:my_business_manager/screens/authentication/register_business_screen.dart';
+import 'package:my_business_manager/screens/authentication/register_screen.dart';
+import 'package:my_business_manager/screens/privacy_policy_screen.dart';
+import 'package:my_business_manager/screens/shared%20screen/document_details_screen.dart' show DocumentDetailsScreen;
+import 'package:my_business_manager/screens/users/dashboard_screen.dart';
 
 import 'navigator_key.dart';
+import 'screens/admin/manage_users/admin_user_document_dashboard_screen.dart';
 
 GoRouter appRouter = GoRouter(
   debugLogDiagnostics: true,
   navigatorKey: navigatorKey,
-  initialLocation: StartupRedirect.getInitialRoute(),
+  initialLocation: StartupRedirect.getInitialRoute(Uri.base.path),
 
-  routes: [
+  routes: <RouteBase>[
     /// ================================
     /// PUBLIC / USER ROUTES
     /// ================================
@@ -36,8 +35,17 @@ GoRouter appRouter = GoRouter(
       builder: (_, __) => const DashboardScreen(),
     ),
     GoRoute(
+      path: "/privacy-policy",
+      builder: (context, state) => const PrivacyPolicyScreen(),
+    ),
+
+    GoRoute(
       path: '/login',
       builder: (_, __) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: "/forgot-password",
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
     GoRoute(
       path: '/register',

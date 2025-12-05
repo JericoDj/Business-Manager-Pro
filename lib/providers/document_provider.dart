@@ -165,6 +165,42 @@ class DocumentProvider extends ChangeNotifier {
     return _controller.getDocument(uid, docType);
   }
 
+  Future<String?> updateDocumentExpiration({
+    required String userId,
+    required String docType,
+    required DateTime expiration,
+  }) async {
+
+
+
+    try {
+      print(userId);
+      print(docType);
+
+      final cleanDocId = docType
+          .toLowerCase()
+          .replaceAll(" ", "_")
+          .replaceAll("’", "")   // <-- remove curly apostrophe
+          .replaceAll("'", "")   // <-- remove straight apostrophe
+          .replaceAll(RegExp(r"[^a-zA-Z0-9_]+"), ""); // remove other special chars
+      print(cleanDocId);
+
+      await FirebaseFirestore.instance
+          .collection("users")
+          .doc(userId)
+          .collection("documents")
+          .doc(cleanDocId)
+          .update({
+        "expiration": expiration,
+      });
+
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+
   /// Update status (admin usage)
   Future<void> updateStatus({
     required String uid,

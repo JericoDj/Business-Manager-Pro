@@ -14,6 +14,13 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? currentUserProfile;
   bool initialized = false;
 
+  bool isLoading = false;
+
+  void setLoading(bool value) {
+    isLoading = value;
+    notifyListeners();
+  }
+
   AuthProvider() {
     _initialize();
   }
@@ -70,6 +77,25 @@ class AuthProvider extends ChangeNotifier {
     });
 
     initialized = true;
+  }
+
+  Future<String?> forgotPassword(String email) async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      return null; // success
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+
+  Future<String?> sendPasswordReset(String email) async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
   }
 
   // LOAD USER PROFILE FROM FIRESTORE

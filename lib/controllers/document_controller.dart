@@ -95,7 +95,7 @@ class DocumentController {
 
 
 
-      final ref = _storage.ref("users/$userDocId/documents/$key/file.$ext");
+      final ref = _storage.ref("users/$userDocId/documents/$key/$filename.$ext");
       print(ref);
       // ----------------------------------------------------
       // 3️⃣ UPLOAD THE FILE
@@ -157,7 +157,7 @@ class DocumentController {
 
 
 
-      final ref = _storage.ref("users/$userDocId/documents/$key/file.$ext");
+      final ref = _storage.ref("users/$userDocId/documents/$key/$filename.$ext");
       print(ref);
       // ----------------------------------------------------
       // 3️⃣ UPLOAD THE FILE

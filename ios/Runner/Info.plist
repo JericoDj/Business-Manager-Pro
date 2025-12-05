@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Dignitywithcare</string>
+	<string>MyBusinessManager</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>dignitywithcare</string>
+	<string>mybusinessmanager</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -28,6 +28,18 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
+	<key>NSPhotoLibraryUsageDescription</key>
+    <string>This app requires access to your photo library to upload documents.</string>
+
+    <key>NSCameraUsageDescription</key>
+    <string>This app requires access to your camera to capture document photos.</string>
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app may require microphone access for voice or video features.</string>
+
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>This app saves images to your library when needed.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
