@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../repositories/authentication_repository.dart';
 
@@ -36,12 +38,13 @@ class AuthProvider extends ChangeNotifier {
       } else if (value is Map<String, dynamic>) {
         out[key] = _sanitizeForStorage(value);
       } else if (value is List) {
-        out[key] = value.map((e) {
-          if (e is Timestamp) return e.toDate().toIso8601String();
-          if (e is DateTime) return e.toIso8601String();
-          if (e is Map<String, dynamic>) return _sanitizeForStorage(e);
-          return e;
-        }).toList();
+        out[key] =
+            value.map((e) {
+              if (e is Timestamp) return e.toDate().toIso8601String();
+              if (e is DateTime) return e.toIso8601String();
+              if (e is Map<String, dynamic>) return _sanitizeForStorage(e);
+              return e;
+            }).toList();
       } else {
         out[key] = value;
       }
@@ -88,7 +91,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-
   Future<String?> sendPasswordReset(String email) async {
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
@@ -103,7 +105,6 @@ class AuthProvider extends ChangeNotifier {
     final doc = await _firestore.collection("users").doc(uid).get();
     if (doc.exists) {
       final data = Map<String, dynamic>.from(doc.data()!);
-
 
       // SANITIZE TIMESTAMP
       final safeData = _sanitizeForStorage(data);
@@ -129,6 +130,7 @@ class AuthProvider extends ChangeNotifier {
       return e.toString();
     }
   }
+
   Future<String?> createBusinessAndAdmin({
     required String companyName,
     required String businessEmail,
@@ -138,22 +140,24 @@ class AuthProvider extends ChangeNotifier {
     required String adminAddress,
     required String adminBirthDate,
     required String password,
+    String subscription = 'free',
   }) async {
     try {
       // 1️⃣ Check if email already exists (Auth)
-      final methods =
-      await FirebaseAuth.instance.fetchSignInMethodsForEmail(businessEmail);
+      final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(
+        businessEmail,
+      );
 
       if (methods.isNotEmpty) return "This email already exists.";
 
       // 2️⃣ Check if company code is unique
-      final existing = await _firestore
-          .collection("businesses")
-          .where("companyCode", isEqualTo: companyCode)
-          .limit(1)
-          .get();
+      final existing =
+          await _firestore
+              .collection("businesses")
+              .where("companyCode", isEqualTo: companyCode)
+              .limit(1)
+              .get();
       if (existing.docs.isNotEmpty) return "Company code already exists.";
-
 
       // 3️⃣ Register admin user in Firebase Auth
       final user = await _repo.register(businessEmail, password);
@@ -171,7 +175,7 @@ class AuthProvider extends ChangeNotifier {
         "homeAddress": adminAddress,
         "dateOfBirth": adminBirthDate,
         "role": "super_admin",
-        "businessId": companyCode,   // final, no need to update later
+        "businessId": companyCode, // final, no need to update later
         "createdAt": FieldValue.serverTimestamp(),
       };
 
@@ -190,6 +194,11 @@ class AuthProvider extends ChangeNotifier {
         "companyName": companyName,
         "businessEmail": businessEmail,
         "companyCode": companyCode,
+        "subscription": {
+          "plan": subscription,
+          "status": "active",
+          "updatedAt": FieldValue.serverTimestamp(),
+        },
         "createdAt": FieldValue.serverTimestamp(),
       });
 
@@ -198,8 +207,6 @@ class AuthProvider extends ChangeNotifier {
       return e.toString();
     }
   }
-
-
 
   // REGISTER USER AND SAVE PROFILE
   Future<String?> registerUser({
@@ -216,11 +223,12 @@ class AuthProvider extends ChangeNotifier {
       // ----------------------------------------------------
       // 1️⃣ CHECK IF COMPANY EXISTS
       // ----------------------------------------------------
-      final companySnap = await _firestore
-          .collection("businesses")
-          .where("companyCode", isEqualTo: companyCode)
-          .limit(1)
-          .get();
+      final companySnap =
+          await _firestore
+              .collection("businesses")
+              .where("companyCode", isEqualTo: companyCode)
+              .limit(1)
+              .get();
 
       if (companySnap.docs.isEmpty) {
         return "Invalid company code.";
@@ -228,17 +236,17 @@ class AuthProvider extends ChangeNotifier {
 
       final companyId = companySnap.docs.first.id;
 
-
       // ----------------------------------------------------
       // 2️⃣ CHECK IF USER EXISTS UNDER THIS COMPANY
       // ----------------------------------------------------
-      final existingUserSnap = await _firestore
-          .collection("users")
-          .where("businessId", isEqualTo: companyCode)
-          .where("name", isEqualTo: name)
-          .where("email", isEqualTo: email)
-          .limit(1)
-          .get();
+      final existingUserSnap =
+          await _firestore
+              .collection("users")
+              .where("businessId", isEqualTo: companyCode)
+              .where("name", isEqualTo: name)
+              .where("email", isEqualTo: email)
+              .limit(1)
+              .get();
 
       if (existingUserSnap.docs.isEmpty) {
         // ❌ DO NOT ALLOW REGISTRATION
@@ -248,7 +256,6 @@ class AuthProvider extends ChangeNotifier {
       // ✔ User exists, upgrade their record
       final userDocRef = existingUserSnap.docs.first.reference;
 
-
       // ----------------------------------------------------
       // 3️⃣ REGISTER USER WITH FIREBASE AUTH
       // ----------------------------------------------------
@@ -257,7 +264,6 @@ class AuthProvider extends ChangeNotifier {
 
       currentUser = user;
       _storage.write("uid", user.uid);
-
 
       // ----------------------------------------------------
       // 4️⃣ UPDATE EXISTING USER DOCUMENT
@@ -276,7 +282,6 @@ class AuthProvider extends ChangeNotifier {
 
       await userDocRef.set(profileData, SetOptions(merge: true));
 
-
       // ----------------------------------------------------
       // 5️⃣ SAVE PROFILE LOCALLY
       // ----------------------------------------------------
@@ -290,13 +295,47 @@ class AuthProvider extends ChangeNotifier {
 
       notifyListeners();
       return null;
-
     } catch (e) {
       return e.toString();
     }
   }
 
+  // UPLOAD PROFILE IMAGE
+  Future<String?> uploadProfileImage({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    try {
+      if (currentUser == null) return "No user logged in";
+      String uid = currentUser!.uid;
 
+      // 1. Upload to Storage
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child("profile_images")
+          .child(
+            "$uid.jpg",
+          ); // Force jpg extension for consistency or use fileName extension
+
+      // Upload raw data
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      final url = await ref.getDownloadURL();
+
+      // 2. Update Firestore
+      await _firestore.collection("users").doc(uid).update({"photoURL": url});
+
+      // 3. Update Local State
+      if (currentUserProfile != null) {
+        currentUserProfile!["photoURL"] = url;
+        _storage.write("profile", currentUserProfile);
+        notifyListeners();
+      }
+
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
 
   // LOGOUT
   Future<void> logout() async {

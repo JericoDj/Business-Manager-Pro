@@ -1,14 +1,17 @@
 class CompanyModel {
   final String id;
   final String name;
-  final String code;   // unique code users enter during registration
+  final String code; // unique code users enter during registration
   final DateTime createdAt;
+
+  final String subscription;
 
   CompanyModel({
     required this.id,
     required this.name,
     required this.code,
     required this.createdAt,
+    this.subscription = 'free',
   });
 
   Map<String, dynamic> toMap() {
@@ -17,6 +20,7 @@ class CompanyModel {
       'name': name,
       'code': code,
       'createdAt': createdAt,
+      'subscription': subscription,
     };
   }
 
@@ -26,6 +30,7 @@ class CompanyModel {
       name: map['name'],
       code: map['code'],
       createdAt: map['createdAt'].toDate(),
+      subscription: map['subscription'] ?? 'free',
     );
   }
 }

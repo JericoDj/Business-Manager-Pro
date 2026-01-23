@@ -41,8 +41,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final auth = context.read<AuthProvider>();
     final docProvider = context.read<DocumentProvider>();
 
-
-
     final uid = auth.currentUser?.uid;
     if (uid != null) {
       await docProvider.loadDocuments(uid);
@@ -64,11 +62,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             onPressed: () {
+              context.push("/profile");
+            },
+            icon: const Icon(Icons.person),
+          ),
+          IconButton(
+            onPressed: () {
               auth.logout();
               context.go("/login");
             },
             icon: const Icon(Icons.logout),
-          )
+          ),
         ],
       ),
       body: Padding(
@@ -78,20 +82,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(
               "Welcome, $fullName",
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 20),
 
             const Text(
               "Required Documents",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
 
             const SizedBox(height: 10),
@@ -103,7 +101,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final title = documents[i];
 
                   /// ALWAYS LOWERCASE
-                  final status = docProvider.getStatusForDoc(title).toLowerCase();
+                  final status =
+                      docProvider.getStatusForDoc(title).toLowerCase();
 
                   return _buildDocItem(context, title, status);
                 },

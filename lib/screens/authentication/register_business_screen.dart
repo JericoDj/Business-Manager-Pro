@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/my_colors.dart';
+import '../../widgets/subscription_dialog.dart';
 
 class RegisterBusinessScreen extends StatefulWidget {
   const RegisterBusinessScreen({super.key});
@@ -28,6 +28,8 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
   bool loading = false;
   bool passwordVisible = false;
   bool confirmPasswordVisible = false;
+
+  String selectedPlan = 'free'; // Default Plan
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +57,6 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-
                   // ------------------ HERO LOGO ------------------
                   GestureDetector(
                     onTap: () => context.go("/login"),
@@ -109,24 +110,84 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                   // ------------------ BUSINESS FIELDS ------------------
                   TextField(
                     controller: companyName,
-                    decoration: const InputDecoration(labelText: "Company Name"),
+                    decoration: const InputDecoration(
+                      labelText: "Company Name",
+                    ),
                   ),
 
                   const SizedBox(height: 10),
-
 
                   TextField(
                     controller: businessEmail,
-                    decoration: const InputDecoration(labelText: "Business Email"),
+                    decoration: const InputDecoration(
+                      labelText: "Business Email",
+                    ),
                   ),
 
                   const SizedBox(height: 10),
 
-
                   TextField(
                     controller: companyCode,
-                    decoration:
-                    const InputDecoration(labelText: "Company Code (unique)"),
+                    decoration: const InputDecoration(
+                      labelText: "Company Code (unique)",
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ------------------ SUBSCRIPTION SELECTION ------------------
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (context) => SubscriptionDialog(
+                              currentPlanId: selectedPlan,
+                              businessId:
+                                  null, // Null for Registration Mode (Selection Only)
+                              onPlanSelected: (id) {
+                                setState(() {
+                                  selectedPlan = id;
+                                });
+                              },
+                            ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Subscription Plan",
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                selectedPlan.toUpperCase(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -150,14 +211,17 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
 
                   TextField(
                     controller: adminPhone,
-                    decoration: const InputDecoration(labelText: "Phone Number"),
+                    decoration: const InputDecoration(
+                      labelText: "Phone Number",
+                    ),
                   ),
                   const SizedBox(height: 10),
 
-
                   TextField(
                     controller: adminAddress,
-                    decoration: const InputDecoration(labelText: "Home Address"),
+                    decoration: const InputDecoration(
+                      labelText: "Home Address",
+                    ),
                   ),
                   const SizedBox(height: 10),
 
@@ -177,7 +241,7 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                       );
                       if (picked != null) {
                         adminBirthDate.text =
-                        "${picked.month}/${picked.day}/${picked.year}";
+                            "${picked.month}/${picked.day}/${picked.year}";
                       }
                     },
                   ),
@@ -196,13 +260,14 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                               ? Icons.visibility
                               : Icons.visibility_off,
                         ),
-                        onPressed: () =>
-                            setState(() => passwordVisible = !passwordVisible),
+                        onPressed:
+                            () => setState(
+                              () => passwordVisible = !passwordVisible,
+                            ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
-
 
                   TextField(
                     controller: confirmPassword,
@@ -215,9 +280,12 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                               ? Icons.visibility
                               : Icons.visibility_off,
                         ),
-                        onPressed: () => setState(
-                              () => confirmPasswordVisible = !confirmPasswordVisible,
-                        ),
+                        onPressed:
+                            () => setState(
+                              () =>
+                                  confirmPasswordVisible =
+                                      !confirmPasswordVisible,
+                            ),
                       ),
                     ),
                   ),
@@ -226,49 +294,52 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
 
                   // ------------------ REGISTER BUTTON ------------------
                   GestureDetector(
-                    onTap: loading
-                        ? null
-                        : () async {
-                      if (password.text.trim() !=
-                          confirmPassword.text.trim()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text("Passwords do not match")),
-                        );
-                        return;
-                      }
+                    onTap:
+                        loading
+                            ? null
+                            : () async {
+                              if (password.text.trim() !=
+                                  confirmPassword.text.trim()) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Passwords do not match"),
+                                  ),
+                                );
+                                return;
+                              }
 
-                      setState(() => loading = true);
+                              setState(() => loading = true);
 
-                      final error =
-                      await auth.createBusinessAndAdmin(
-                        companyName: companyName.text.trim(),
-                        businessEmail: businessEmail.text.trim(),
-                        companyCode: companyCode.text.trim(),
-                        adminName: adminName.text.trim(),
-                        adminPhone: adminPhone.text.trim(),
-                        adminAddress: adminAddress.text.trim(),
-                        adminBirthDate: adminBirthDate.text.trim(),
-                        password: password.text.trim(),
-                      );
+                              final error = await auth.createBusinessAndAdmin(
+                                companyName: companyName.text.trim(),
+                                businessEmail: businessEmail.text.trim(),
+                                companyCode: companyCode.text.trim(),
+                                adminName: adminName.text.trim(),
+                                adminPhone: adminPhone.text.trim(),
+                                adminAddress: adminAddress.text.trim(),
+                                adminBirthDate: adminBirthDate.text.trim(),
+                                password: password.text.trim(),
+                                subscription: selectedPlan,
+                              );
 
-                      if (!mounted) return;
+                              if (!mounted) return;
 
-                      setState(() => loading = false);
+                              setState(() => loading = false);
 
-                      if (error != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(error)),
-                        );
-                        return;
-                      }
+                              if (error != null) {
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).showSnackBar(SnackBar(content: Text(error)));
+                                return;
+                              }
 
-                      await Future.delayed(
-                          const Duration(milliseconds: 150));
+                              await Future.delayed(
+                                const Duration(milliseconds: 150),
+                              );
 
-                      if (!mounted) return;
-                      context.go("/admin");
-                    },
+                              if (!mounted) return;
+                              context.go("/admin");
+                            },
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -277,15 +348,18 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
-                      child: loading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                        "Register Business",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
+                      child:
+                          loading
+                              ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                              : const Text(
+                                "Register Business",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
                     ),
                   ),
 
@@ -305,7 +379,6 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                       ),
                     ),
                   ),
-
                 ],
               ),
             ),

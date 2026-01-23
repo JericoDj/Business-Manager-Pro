@@ -6,7 +6,7 @@ class UserModel {
   final String phone;
   final String email;
   final String homeAddress;
-  final String dateOfBirth;
+  final String? dateOfBirth;
   final String role;         // admin | super_admin | user
   final String companyId;    // the company this user belongs to
   final DateTime createdAt;
@@ -17,7 +17,7 @@ class UserModel {
     required this.phone,
     required this.email,
     required this.homeAddress,
-    required this.dateOfBirth,
+    this.dateOfBirth,
     required this.role,
     required this.companyId,
     required this.createdAt,

@@ -1,25 +1,30 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:my_business_manager/providers/client_provider.dart' show ClientProvider;
-import 'package:my_business_manager/providers/document_provider.dart' show DocumentProvider;
-import 'package:my_business_manager/providers/manage_user_provider.dart' show ManageUserProvider;
+import 'package:my_business_manager/providers/client_provider.dart'
+    show ClientProvider;
+import 'package:my_business_manager/providers/document_provider.dart'
+    show DocumentProvider;
+import 'package:my_business_manager/providers/manage_user_provider.dart'
+    show ManageUserProvider;
 import 'package:my_business_manager/utils/my_colors.dart';
 import 'package:provider/provider.dart';
-import 'app_router.dart';
+import 'router/app_router.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'providers/subscription_provider.dart';
+import 'providers/transaction_provider.dart';
 // import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_storage/get_storage.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();   // ← MUST come first
-  //
-  // if (!kIsWeb) {
-  //   await dotenv.load(fileName: ".env"); // Only mobile
-  // }     // ← NOW loads correctly
+  WidgetsFlutterBinding.ensureInitialized(); // ← MUST come first
+
+  if (!kIsWeb) {
+    await dotenv.load(fileName: ".env"); // Only mobile
+  } // ← NOW loads correctly
 
   if (kIsWeb) {
     await Firebase.initializeApp(
@@ -47,9 +52,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DocumentProvider()),
         ChangeNotifierProvider(create: (_) => ManageUserProvider()),
         ChangeNotifierProvider(create: (_) => ClientProvider()),
+
         // ChangeNotifierProvider(create: (_) => NotesProvider()),
-
-
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(create: (_) => TransactionProvider()),
       ],
       child: const App(),
     ),
@@ -91,16 +97,9 @@ class App extends StatelessWidget {
         // TEXTFIELD THEMES USING ROBOTO
         // ---------------------------
         inputDecorationTheme: InputDecorationTheme(
-          labelStyle: GoogleFonts.notoSerifJp(
-            fontSize: 14,
-          ),
-          hintStyle: GoogleFonts.notoSerifJp(
-            fontSize: 14,
-            color: Colors.grey,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          labelStyle: GoogleFonts.notoSerifJp(fontSize: 14),
+          hintStyle: GoogleFonts.notoSerifJp(fontSize: 14, color: Colors.grey),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         ),
 
         // BUTTON TEXTS ALSO USE ROBOTO
@@ -118,4 +117,3 @@ class App extends StatelessWidget {
     );
   }
 }
-

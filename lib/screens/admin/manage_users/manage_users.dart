@@ -163,25 +163,25 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
               _dialogField("Email", email),
               _dialogField("Home Address", address),
 
-              TextField(
-                controller: birth,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: "Birth Date",
-                  border: OutlineInputBorder(),
-                ),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime(1950),
-                    lastDate: DateTime.now(),
-                    initialDate: DateTime(2000),
-                  );
-                  if (date != null) {
-                    birth.text = "${date.month}/${date.day}/${date.year}";
-                  }
-                },
-              ),
+              // TextField(
+              //   controller: birth,
+              //   readOnly: true,
+              //   decoration: const InputDecoration(
+              //     labelText: "Birth Date",
+              //     border: OutlineInputBorder(),
+              //   ),
+              //   onTap: () async {
+              //     final date = await showDatePicker(
+              //       context: context,
+              //       firstDate: DateTime(1950),
+              //       lastDate: DateTime.now(),
+              //       initialDate: DateTime(2000),
+              //     );
+              //     if (date != null) {
+              //       birth.text = "${date.month}/${date.day}/${date.year}";
+              //     }
+              //   },
+              // ),
             ],
           ),
         ),

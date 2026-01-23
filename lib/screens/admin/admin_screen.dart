@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:my_business_manager/utils/my_colors.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -40,6 +40,10 @@ class AdminDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final box = GetStorage();
+    final profile = box.read("profile");
+    final companyName = profile != null ? profile["businessId"] : "My Business";
+    final photoURL = profile != null ? profile["photoURL"] : null;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -65,7 +69,6 @@ class AdminDashboardScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-
                 // ------------------ HERO LOGO ------------------
                 Hero(
                   tag: "app_logo",
@@ -78,9 +81,34 @@ class AdminDashboardScreen extends StatelessWidget {
                   ),
                 ),
 
+                // ------------------ PROFILE IMAGE ------------------
+                GestureDetector(
+                  onTap: () => context.push("/profile"),
+                  child: CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage:
+                        photoURL != null && photoURL.isNotEmpty
+                            ? NetworkImage(photoURL)
+                            : const AssetImage(
+                                  "assets/default_avatar.png",
+                                )
+                                as ImageProvider,
+                  ),
+                ),
+
                 const SizedBox(height: 10),
 
                 // ------------------ APP NAME ------------------
+                Text(
+                  companyName,
+                  style: GoogleFonts.roboto(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: MyColors.darkShade,
+                  ),
+                ),
+
                 Text(
                   "My Business Manager",
                   style: GoogleFonts.roboto(
@@ -136,7 +164,6 @@ class AdminDashboardScreen extends StatelessWidget {
                 //   color: Colors.orange,
                 //   onTap: () => context.push("/admin/notes"),
                 // ),
-
                 const SizedBox(height: 25),
                 const Divider(),
 
@@ -166,7 +193,6 @@ class AdminDashboardScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
               ],
             ),
           ),
