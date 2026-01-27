@@ -217,13 +217,13 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  TextField(
-                    controller: adminAddress,
-                    decoration: const InputDecoration(
-                      labelText: "Home Address",
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  // TextField(
+                  //   controller: adminAddress,
+                  //   decoration: const InputDecoration(
+                  //     labelText: "Home Address",
+                  //   ),
+                  // ),
+                  // const SizedBox(height: 10),
 
                   TextField(
                     controller: adminBirthDate,

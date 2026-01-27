@@ -114,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _inputField("Full Name", name),
                 _inputField("Phone Number", phone),
                 _inputField("Email Address", email),
-                _inputField("Home Address (US Format)", homeAddress),
+                // _inputField("Home Address (US Format)", homeAddress),
                 _inputField("Company Code", companyCode),
 
                 const SizedBox(height: 10),

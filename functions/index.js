@@ -108,20 +108,26 @@ app.post("/create-checkout", async (req, res) => {
 
 
 
-
-/* ---------------- PAYMENT VERIFICATION (GET) ---------------- */
+/* ---------------- PAYMENT STATUS PAGE (GET) ---------------- */
 app.get("/payment-success", async (req, res) => {
   const { checkout_id } = req.query;
 
   console.log("✅ Payment success redirect");
   console.log("checkout_id:", checkout_id);
 
-  // Optional audit logging ONLY
+  let transactionId = null;
+
   if (checkout_id) {
-    await db.collection("checkout_redirects").add({
-      checkoutId: checkout_id,
-      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // Find transaction by checkoutId
+    const snap = await db
+      .collection("transactions")
+      .where("checkoutId", "==", checkout_id)
+      .limit(1)
+      .get();
+
+    if (!snap.empty) {
+      transactionId = snap.docs[0].id;
+    }
   }
 
   return res
@@ -133,7 +139,7 @@ app.get("/payment-success", async (req, res) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Payment Successful</title>
+  <title>Payment Processing</title>
   <style>
     body {
       margin: 0;
@@ -153,19 +159,78 @@ app.get("/payment-success", async (req, res) => {
       box-shadow: 0 20px 40px rgba(0,0,0,0.08);
       text-align: center;
     }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #ddd;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 24px auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .success {
+      color: #16a34a;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>✅ Payment Successful</h1>
-    <p>Your subscription is being activated.</p>
-    <p>You may now return to the app.</p>
+    <h1 id="title">⏳ Processing Payment</h1>
+    <div id="spinner" class="spinner"></div>
+    <p id="message">Please wait while we confirm your subscription.</p>
   </div>
+
+<script>
+  const transactionId = ${transactionId ? `"${transactionId}"` : "null"};
+
+  async function checkStatus() {
+    if (!transactionId) return;
+
+    try {
+      const res = await fetch("/transaction-status?tx=" + transactionId);
+      const data = await res.json();
+
+      if (data.status === "completed") {
+        document.getElementById("spinner").remove();
+        document.getElementById("title").innerText = "✅ Payment Completed";
+        document.getElementById("message").innerHTML =
+          "<span class='success'>Your subscription is active.</span><br/><br/>You may now return to the app.";
+      }
+    } catch (e) {
+      console.error("Status check failed", e);
+    }
+  }
+
+  setInterval(checkStatus, 3000);
+</script>
 </body>
 </html>
 `);
 });
 
+
+/* ---------------- TRANSACTION STATUS (GET) ---------------- */
+app.get("/transaction-status", async (req, res) => {
+  const { tx } = req.query;
+
+  if (!tx) {
+    return res.status(400).json({ error: "Missing transaction id" });
+  }
+
+  const snap = await db.collection("transactions").doc(tx).get();
+
+  if (!snap.exists) {
+    return res.status(404).json({ error: "Transaction not found" });
+  }
+
+  return res.json({
+    status: snap.data().status,
+  });
+});
 
 
 /* ---------------- WEBHOOK ---------------- */
@@ -175,64 +240,51 @@ app.post("/webhook", async (req, res) => {
 
     const event = req.body;
 
-    if (!event || !event.type) {
+    if (!event || !event.type || !event.data) {
       console.warn("⚠️ Invalid webhook payload");
       return res.status(400).send("Invalid payload");
     }
 
+    /* ============================
+       RAW EVENT LOGGING (IMPORTANT)
+       ============================ */
     console.log("📌 Event type:", event.type);
+    console.log(
+      "📦 Full event body:",
+      JSON.stringify(event, null, 2)
+    );
 
-    const allowedEvents = [
-      "checkout.created",
-      "checkout.updated",
-      "subscription.created",
-      "subscription.updated",
-      "subscription.active",
-    ];
+    const payload = event.data;
 
-    if (!allowedEvents.includes(event.type)) {
-      return res.status(200).send("Ignored");
+    console.log(
+      "📦 Event data:",
+      JSON.stringify(payload, null, 2)
+    );
+
+    console.log(
+      "🧩 Metadata:",
+      JSON.stringify(payload.metadata ?? {}, null, 2)
+    );
+
+    /* ============================
+       EXTRACT reference_id (Checkout Links)
+       ============================ */
+    const transactionId =
+      payload.metadata?.reference_id ??
+      payload.metadata?.referenceId ??
+      null;
+
+    console.log("🔑 Extracted transactionId:", transactionId);
+
+    if (!transactionId) {
+      console.warn("❌ Missing metadata.reference_id");
+      return res.status(200).send("No reference_id");
     }
 
-    const payload = event.data || {};
-
-    /* =================================================
-       SAVE EVENT (CHECKOUT + SUBSCRIPTION ONLY)
-       ================================================= */
-    await db
-      .collection("webhooks")
-      .doc("polar")
-      .collection("events")
-      .add({
-        type: event.type,
-        referenceId: payload.reference_id || payload.metadata?.reference_id || null,
-        checkoutId: payload.checkout_id ?? payload.id ?? null,
-        subscriptionId: payload.id ?? null,
-        customerEmail:
-          payload.customer?.email ||
-          payload.customer_email ||
-          null,
-        payload,
-        receivedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-    /* =================================================
-       CHECKOUT EVENTS → BIND CHECKOUT TO TRANSACTION
-       ================================================= */
-    if (
-      event.type === "checkout.created" ||
-      event.type === "checkout.updated"
-    ) {
-      const checkout = payload;
-
-      const transactionId = checkout.reference_id || checkout.metadata?.reference_id; // ✅ FIX
-      const checkoutId = checkout.id;
-
-      if (!transactionId) {
-        console.warn("⚠️ Checkout missing reference_id");
-        return res.status(200).send("No reference_id");
-      }
-
+    /* ============================
+       HANDLE ORDER EVENTS (SOURCE OF TRUTH)
+       ============================ */
+    if (event.type === "order.paid") {
       const txRef = db.collection("transactions").doc(transactionId);
       const txSnap = await txRef.get();
 
@@ -242,78 +294,27 @@ app.post("/webhook", async (req, res) => {
       }
 
       await txRef.update({
-        checkoutId,
-        checkoutStatus: checkout.status,
-        checkoutUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "completed",
+        orderId: payload.id,
+        verifiedVia: "polar_order",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log("🔗 Checkout linked via reference_id:", {
-        transactionId,
-        checkoutId,
-      });
-
-      return res.status(200).send("Checkout handled");
+      console.log("✅ Transaction completed:", transactionId);
+      return res.status(200).send("OK");
     }
 
-    /* =================================================
-       SUBSCRIPTION EVENTS → COMPLETE TRANSACTION
-       ================================================= */
-    const sub = payload;
-
-    const transactionId = sub.reference_id || sub.metadata?.reference_id; // ✅ FIX
-
-    if (!transactionId) {
-      console.warn("❌ Subscription missing reference_id");
-      return res.status(200).send("No reference_id");
-    }
-
-    const txRef = db.collection("transactions").doc(transactionId);
-    const txSnap = await txRef.get();
-
-    if (!txSnap.exists) {
-      console.warn("❌ Transaction not found:", transactionId);
-      return res.status(200).send("Transaction not found");
-    }
-
-    const txData = txSnap.data();
-
-    if (txData.status === "completed") {
-      console.log("ℹ️ Transaction already completed");
-      return res.status(200).send("Already processed");
-    }
-
-    if (sub.status !== "active" && sub.status !== "trialing") {
-      console.log("⏳ Subscription not active:", sub.status);
-      return res.status(200).send("Not active");
-    }
-
-    await txRef.update({
-      status: "completed",
-      polarSubscriptionId: sub.id,
-      productId: sub.product_id,
-      customerEmail:
-        sub.customer?.email ||
-        sub.customer_email ||
-        null,
-      checkoutId: sub.checkout_id ?? null,
-      subscriptionStatus: sub.status,
-      currentPeriodStart: sub.current_period_start ?? null,
-      currentPeriodEnd: sub.current_period_end ?? null,
-      verifiedVia: "polar_webhook",
-      completedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    console.log("✅ Transaction completed via reference_id:", {
-      transactionId,
-      subscriptionId: sub.id,
-    });
-
-    return res.status(200).send("OK");
+    /* ============================
+       IGNORE EVERYTHING ELSE
+       ============================ */
+    console.log("ℹ️ Event ignored:", event.type);
+    return res.status(200).send("Ignored");
   } catch (err) {
     console.error("❌ Webhook error", err);
     return res.status(500).send("Webhook failed");
   }
 });
+
 
 
 
