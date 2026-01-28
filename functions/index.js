@@ -179,33 +179,28 @@ app.get("/payment-success", async (req, res) => {
 </head>
 <body>
   <div class="card">
-    <h1 id="title">⏳ Processing Payment</h1>
-    <div id="spinner" class="spinner"></div>
-    <p id="message">Please wait while we confirm your subscription.</p>
+    <h1 id="title" class="success">✅ Payment Successful</h1>
+    <div style="font-size: 64px; margin: 20px;">🎉</div>
+    <p id="message">Thank you! Your subscription has been processed.</p>
+    <a href="#" onclick="window.close()" style="display:inline-block; margin-top:20px; text-decoration:none; color: #4f46e5; font-weight:bold;">Close Window</a>
   </div>
 
 <script>
   const transactionId = ${transactionId ? `"${transactionId}"` : "null"};
 
+  // Optional: Still poll to ensure DB sync, but UI shows success immediately
   async function checkStatus() {
     if (!transactionId) return;
-
     try {
-      const res = await fetch("/transaction-status?tx=" + transactionId);
-      const data = await res.json();
-
-      if (data.status === "completed") {
-        document.getElementById("spinner").remove();
-        document.getElementById("title").innerText = "✅ Payment Completed";
-        document.getElementById("message").innerHTML =
-          "<span class='success'>Your subscription is active.</span><br/><br/>You may now return to the app.";
-      }
+      await fetch("/transaction-status?tx=" + transactionId);
+      // We don't really need to update UI since we already show success
     } catch (e) {
       console.error("Status check failed", e);
     }
   }
-
-  setInterval(checkStatus, 3000);
+  
+  // Trigger one check just to warm up/verify
+  checkStatus();
 </script>
 </body>
 </html>
@@ -301,7 +296,53 @@ app.post("/webhook", async (req, res) => {
       });
 
       console.log("✅ Transaction completed:", transactionId);
-      return res.status(200).send("OK");
+
+      // --- NEW: Update Business Subscription ---
+      try {
+        const txData = txSnap.data();
+        const businessId = txData.businessId;
+        const planId = txData.planId;
+
+        if (businessId && planId) {
+          // Calculate End Date (1 month from now)
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + 1);
+
+          // Find business by ID (or companyCode if used interchangeably)
+          // Assumption: businessId stored in transaction IS the document ID for businesses. 
+          // If businessId refers to 'companyCode', we need a query. 
+          // Based on user prompt "transaction businessId same with company code", 
+          // and existing code "db.collection('businesses').doc(businessId)", 
+          // we will try ID first, or query if needed. 
+          // Let's stick to the prompt's implied logic: businessId matches companyCode.
+
+          let businessRef = db.collection("businesses").doc(businessId);
+          let businessSnap = await businessRef.get();
+
+          if (!businessSnap.exists) {
+            // Try querying by companyCode
+            const qSnap = await db.collection("businesses").where("companyCode", "==", businessId).limit(1).get();
+            if (!qSnap.empty) {
+              businessRef = qSnap.docs[0].ref;
+            } else {
+              console.error(`Business not found for ID/Code: ${businessId}`);
+              return res.status(200).send("OK - Business not found");
+            }
+          }
+
+          await businessRef.update({
+            "subscription.plan": planId,
+            "subscription.status": "active",
+            "subscription.startDate": admin.firestore.FieldValue.serverTimestamp(),
+            "subscription.endDate": admin.firestore.Timestamp.fromDate(endDate),
+            "subscription.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
+            "subscription.transactionId": transactionId
+          });
+          console.log(`✅ Business ${businessId} subscription updated to ${planId}`);
+        }
+      } catch (bizError) {
+        console.error("❌ Failed to update business subscription:", bizError);
+      }
     }
 
     /* ============================

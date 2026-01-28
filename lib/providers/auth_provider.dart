@@ -111,6 +111,7 @@ class AuthProvider extends ChangeNotifier {
 
       currentUserProfile = safeData;
       _storage.write("profile", safeData);
+      print(_storage.read("profile"));
     }
   }
 

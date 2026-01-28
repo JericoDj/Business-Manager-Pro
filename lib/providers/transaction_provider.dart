@@ -73,6 +73,45 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Poll for completion (Wait up to 3 minutes)
+  Future<bool> waitForCompletion(String transactionId) async {
+
+
+    int attempts = 0;
+    const maxAttempts = 90  ; // 60 * 3s = 15 minutes
+
+    while (attempts < maxAttempts) {
+      try {
+        final doc =
+            await _firestore
+                .collection('transactions')
+                .doc(transactionId)
+                .get();
+        if (doc.exists) {
+          final data = doc.data();
+          final status = data?['status'];
+
+          print("Transaction status: $status");
+          print("Transaction data: $data");
+
+          if (status == 'completed') {
+            return true;
+          }
+          if (status == 'failed') {
+            return false;
+          }
+        }
+      } catch (e) {
+        print("Polling error: $e");
+      }
+
+      await Future.delayed(const Duration(seconds: 10));
+      attempts++;
+    }
+
+    return false; // Timeout
+  }
+
   @override
   void dispose() {
     _transactionSubscription?.cancel();
