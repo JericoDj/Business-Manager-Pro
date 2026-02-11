@@ -52,6 +52,20 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
+  // Cancel transaction (user changed mind during verification)
+  Future<void> cancelTransaction(String transactionId) async {
+    try {
+      await _firestore.collection('transactions').doc(transactionId).update({
+        'status': 'cancelled',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      // Logic for stream update will be handled by the listener
+    } catch (e) {
+      print("Error cancelling transaction: $e");
+      rethrow;
+    }
+  }
+
   void _listenToTransaction(String transactionId) {
     _transactionSubscription?.cancel();
     _transactionSubscription = _firestore
@@ -75,10 +89,8 @@ class TransactionProvider with ChangeNotifier {
 
   // Poll for completion (Wait up to 3 minutes)
   Future<bool> waitForCompletion(String transactionId) async {
-
-
     int attempts = 0;
-    const maxAttempts = 90  ; // 60 * 3s = 15 minutes
+    const maxAttempts = 90; // 60 * 3s = 15 minutes
 
     while (attempts < maxAttempts) {
       try {
@@ -97,7 +109,7 @@ class TransactionProvider with ChangeNotifier {
           if (status == 'completed') {
             return true;
           }
-          if (status == 'failed') {
+          if (status == 'failed' || status == 'cancelled') {
             return false;
           }
         }

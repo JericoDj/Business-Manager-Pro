@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/my_colors.dart';
-import '../../widgets/subscription_dialog.dart';
 
 class RegisterBusinessScreen extends StatefulWidget {
   const RegisterBusinessScreen({super.key});
@@ -133,65 +132,6 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
-
-                  // ------------------ SUBSCRIPTION SELECTION ------------------
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder:
-                            (context) => SubscriptionDialog(
-                              currentPlanId: selectedPlan,
-                              businessId:
-                                  null, // Null for Registration Mode (Selection Only)
-                              onPlanSelected: (id) {
-                                setState(() {
-                                  selectedPlan = id;
-                                });
-                              },
-                            ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Subscription Plan",
-                                style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                selectedPlan.toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Icon(Icons.arrow_drop_down),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
                   const Text(
                     "Admin Information",
                     style: TextStyle(
@@ -224,7 +164,6 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                   //   ),
                   // ),
                   // const SizedBox(height: 10),
-
                   TextField(
                     controller: adminBirthDate,
                     readOnly: true,

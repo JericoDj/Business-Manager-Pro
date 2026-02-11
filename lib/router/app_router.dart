@@ -27,6 +27,7 @@ import '../../screens/payment/success_screen.dart';
 
 import 'navigator_key.dart';
 import '../screens/admin/manage_users/admin_user_document_dashboard_screen.dart';
+import '../screens/admin/company_documents/company_documents_screen.dart';
 
 GoRouter appRouter = GoRouter(
   debugLogDiagnostics: true,
@@ -115,6 +116,18 @@ GoRouter appRouter = GoRouter(
 
         if (role == "super_admin" || role == "admin") {
           return const ManageClientsScreen();
+        }
+
+        return const DashboardScreen();
+      },
+    ),
+    GoRoute(
+      path: '/admin/company-documents',
+      builder: (_, __) {
+        final role = (GetStorage().read("profile") as Map?)?["role"];
+
+        if (role == "super_admin" || role == "admin") {
+          return const CompanyDocumentsScreen();
         }
 
         return const DashboardScreen();

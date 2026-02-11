@@ -31,17 +31,33 @@ class ManageUserProvider extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    final snap = await _firestore
-        .collection("users")
-        .where("businessId", isEqualTo: companyId)
-        .get();
+    final snap =
+        await _firestore
+            .collection("users")
+            .where("businessId", isEqualTo: companyId)
+            .get();
 
     // Store full data including docId
-    users = snap.docs.map((d) {
-      final data = d.data();
-      data["docId"] = d.id; // store document ID for delete/update
-      return data;
-    }).toList();
+    // AND fetch document counts in parallel
+    users = await Future.wait(
+      snap.docs.map((d) async {
+        final data = d.data();
+        data["docId"] = d.id; // store document ID
+
+        // Fetch document count
+        final docSnap =
+            await _firestore
+                .collection("users")
+                .doc(d.id)
+                .collection("documents")
+                .count()
+                .get();
+
+        data["documentCount"] = docSnap.count;
+
+        return data;
+      }),
+    );
 
     print(users);
 
@@ -61,13 +77,13 @@ class ManageUserProvider extends ChangeNotifier {
       if (companyId.isEmpty) return "Company ID missing.";
 
       await _firestore.collection("users").add({
-        "uid": null,           // No login account
+        "uid": null, // No login account
         "name": name,
         "phone": phone,
         "email": email,
         "homeAddress": homeAddress,
         "dateOfBirth": birthDate,
-        "role": null,          // Offline user
+        "role": null, // Offline user
         "businessId": companyId,
         "createdAt": FieldValue.serverTimestamp(),
       });

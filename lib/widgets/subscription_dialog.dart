@@ -147,28 +147,59 @@ class SubscriptionDialog extends StatelessWidget {
                                             transactionId: transactionId,
                                           );
 
-
-
                                       // 4. Show verifying dialog
                                       if (!context.mounted) return;
 
                                       showDialog(
                                         context: context,
                                         barrierDismissible: false,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text("Verifying Payment"),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: const [
-                                              CircularProgressIndicator(),
-                                              SizedBox(height: 16),
-                                              Text(
-                                                "We are confirming your payment.\nThis may 1-2 minutes after payment is successful take a moment.",
-                                                textAlign: TextAlign.center,
+                                        builder:
+                                            (ctx) => AlertDialog(
+                                              title: const Text(
+                                                "Verifying Payment",
                                               ),
-                                            ],
-                                          ),
-                                        ),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  CircularProgressIndicator(),
+                                                  SizedBox(height: 16),
+                                                  Text(
+                                                    "We are confirming your payment.\nThis may take a moment after payment is successful.",
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    // 1. Cancel transaction
+                                                    await transactionProvider
+                                                        .cancelTransaction(
+                                                          transactionId,
+                                                        );
+
+                                                    // 2. Clear local UI state
+                                                    subscriptionProvider
+                                                        .clearProvisionalUpgrade();
+
+                                                    // 3. Close dialog
+                                                    if (context.mounted) {
+                                                      Navigator.pop(context);
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            "Payment verification cancelled.",
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                                  child: const Text("Cancel"),
+                                                ),
+                                              ],
+                                            ),
                                       );
 
                                       // 5. Wait for backend confirmation
@@ -192,18 +223,16 @@ class SubscriptionDialog extends StatelessWidget {
                                                       actions: [
                                                         TextButton(
                                                           onPressed:
-                                                              () =>{
-                                              Navigator.pop(
-                                              context,
-                                              ),
+                                                              () => {
                                                                 Navigator.pop(
                                                                   context,
                                                                 ),
                                                                 Navigator.pop(
                                                                   context,
                                                                 ),
-
-
+                                                                Navigator.pop(
+                                                                  context,
+                                                                ),
                                                               },
 
                                                           child: const Text(

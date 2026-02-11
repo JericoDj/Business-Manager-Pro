@@ -177,4 +177,20 @@ class SubscriptionProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> cancelSubscription(String businessId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _controller.cancelSubscription(businessId);
+      // Optionally reload subscription or let stream handle it
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

@@ -1,5 +1,5 @@
 const { onRequest } = require("firebase-functions/v2/https");
-const { defineSecret, defineString } = require("firebase-functions/params");
+// firebase-functions/params no longer needed — POLAR_ACCESS_TOKEN loaded from .env
 const admin = require("firebase-admin");
 const express = require("express");
 const cors = require("cors");
@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(cors({ origin: true }));
 
 
-const POLAR_ACCESS_TOKEN = defineSecret("POLAR_ACCESS_TOKEN");
+// POLAR_ACCESS_TOKEN is loaded from .env via process.env
 
 /* ---------------- REDIRECT (Optional) ---------------- */
 // User is effectively using direct links, but keeping a simple GET redirect 
@@ -72,7 +72,7 @@ app.post("/create-checkout", async (req, res) => {
        CREATE CHECKOUT
     ------------------------------------------------- */
     const polar = new Polar({
-      accessToken: POLAR_ACCESS_TOKEN.value(),
+      accessToken: process.env.POLAR_ACCESS_TOKEN,
     });
 
     const checkout = await polar.checkouts.create({
@@ -107,6 +107,118 @@ app.post("/create-checkout", async (req, res) => {
 
 
 
+
+/* ---------------- CANCEL SUBSCRIPTION (API) ---------------- */
+
+app.post("/cancel-subscription", async (req, res) => {
+  try {
+    /* -------------------------------------------------
+       AUTH
+    ------------------------------------------------- */
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+    await admin.auth().verifyIdToken(idToken);
+
+    /* -------------------------------------------------
+       INPUT
+    ------------------------------------------------- */
+    const { businessId } = req.body;
+
+    if (!businessId) {
+      return res.status(400).json({ error: "Missing businessId" });
+    }
+
+    /* -------------------------------------------------
+       GET BUSINESS BY companyCode
+    ------------------------------------------------- */
+    const qSnap = await db
+      .collection("businesses")
+      .where("companyCode", "==", businessId)
+      .limit(1)
+      .get();
+
+    if (qSnap.empty) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const businessRef = qSnap.docs[0].ref;
+    const businessData = qSnap.docs[0].data();
+
+    const subscription = businessData.subscription;
+
+    if (!subscription) {
+      return res
+        .status(400)
+        .json({ error: "No active subscription found to cancel" });
+    }
+
+    const polarSubscriptionId = subscription.polarSubscriptionId;
+
+    /* -------------------------------------------------
+       CANCEL IN POLAR
+    ------------------------------------------------- */
+
+    if (polarSubscriptionId) {
+      try {
+        console.log(`Revoking subscription via Polar API. ID: "${polarSubscriptionId}"`);
+        const polarRes = await fetch(
+          `https://api.polar.sh/v1/subscriptions/${polarSubscriptionId}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${process.env.POLAR_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (polarRes.ok) {
+          console.log(`✅ Subscription ${polarSubscriptionId} revoked successfully.`);
+        } else if (polarRes.status === 403) {
+          // Already canceled
+          console.warn(`⚠️ Subscription ${polarSubscriptionId} is already canceled. Proceeding with Firestore update.`);
+        } else if (polarRes.status === 404) {
+          // Not found
+          console.warn(`⚠️ Subscription ${polarSubscriptionId} not found in Polar. Proceeding with Firestore update.`);
+        } else {
+          const errBody = await polarRes.text();
+          console.error(`Polar API error (${polarRes.status}):`, errBody);
+          return res.status(500).json({ error: `Cancellation failed: ${errBody}` });
+        }
+      } catch (polarErr) {
+        console.error("Polar cancellation fetch error:", polarErr);
+        return res.status(500).json({ error: `Cancellation failed: ${polarErr.message}` });
+      }
+    } else {
+      console.warn(
+        "⚠️ No polarSubscriptionId found. Updating Firestore only (forcing cancel)."
+      );
+    }
+
+    /* -------------------------------------------------
+       UPDATE FIRESTORE
+    ------------------------------------------------- */
+    await businessRef.update({
+      "subscription.status": "canceled",
+      "subscription.plan": "free",
+      "subscription.canceledAt": admin.firestore.FieldValue.serverTimestamp(),
+      "subscription.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.status(200).json({ message: "Subscription canceled and plan reset to free." });
+
+  } catch (err) {
+    console.error("❌ Cancel subscription error:", err);
+    return res
+      .status(500)
+      .json({ error: "Failed to cancel subscription" });
+  }
+});
 
 /* ---------------- PAYMENT STATUS PAGE (GET) ---------------- */
 app.get("/payment-success", async (req, res) => {
@@ -336,13 +448,23 @@ app.post("/webhook", async (req, res) => {
             "subscription.startDate": admin.firestore.FieldValue.serverTimestamp(),
             "subscription.endDate": admin.firestore.Timestamp.fromDate(endDate),
             "subscription.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
-            "subscription.transactionId": transactionId
+            "subscription.transactionId": transactionId,
+            "subscription.polarSubscriptionId": payload.subscription_id,
+            "subscription.customerId": payload.customer_id, // Store customer_id from order
           });
           console.log(`✅ Business ${businessId} subscription updated to ${planId}`);
         }
       } catch (bizError) {
         console.error("❌ Failed to update business subscription:", bizError);
       }
+    }
+
+    /* ============================
+       HANDLE SUBSCRIPTION EVENTS
+       ============================ */
+    if (event.type.startsWith("subscription.")) {
+      await handleSubscriptionUpdate(payload);
+      return res.status(200).send("Subscription handled");
     }
 
     /* ============================
@@ -373,7 +495,8 @@ async function handleSubscriptionUpdate(subscription) {
   const metadata = subscription.metadata || {};
   const businessId = metadata.businessId || metadata.business_id;
   // 'transactionId' might come from metadata OR from external_reference (if mapped by Polar)
-  const transactionId = metadata.transactionId || metadata.external_reference;
+  // Checkout sessions use 'reference_id' in metadata.
+  const transactionId = metadata.transactionId || metadata.external_reference || metadata.reference_id;
 
   console.log(`Processing ${subscription.status} for Business: ${businessId}, Tx: ${transactionId}`);
 
@@ -394,25 +517,39 @@ async function handleSubscriptionUpdate(subscription) {
   }
 
   // 2. Update Business Document
-  if (businessId) {
+  // If businessId is missing from metadata, try to find it via Transaction
+  let targetBusinessId = businessId;
+  if (!targetBusinessId && transactionId) {
+    try {
+      const txDoc = await db.collection('transactions').doc(transactionId).get();
+      if (txDoc.exists) {
+        targetBusinessId = txDoc.data().businessId;
+        console.log(`Found businessId ${targetBusinessId} from transaction ${transactionId}`);
+      }
+    } catch (e) {
+      console.error("Error looking up transaction for businessId:", e);
+    }
+  }
+
+  if (targetBusinessId) {
     const snap = await db
       .collection("businesses")
-      .where("companyCode", "==", businessId) // Assuming companyCode IS the businessId string
+      .where("companyCode", "==", targetBusinessId) // Assuming companyCode IS the businessId string
       .limit(1)
       .get();
 
     if (!snap.empty) {
+      // Use dot notation to avoid overwriting the entire 'subscription' map (which contains 'plan')
       await snap.docs[0].ref.update({
-        subscription: {
-          status: subscription.status,
-          polarSubscriptionId: subscription.id,
-          productId: subscription.product_id,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
+        "subscription.status": subscription.status,
+        "subscription.polarSubscriptionId": subscription.id,
+        "subscription.customerId": subscription.customer_id || subscription.user_id, // Store customer_id
+        "subscription.productId": subscription.product_id,
+        "subscription.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
       });
-      console.log(`Business ${businessId} updated.`);
+      console.log(`Business ${targetBusinessId} updated.`);
     } else {
-      console.warn(`Business ${businessId} not found.`);
+      console.warn(`Business ${targetBusinessId} not found.`);
     }
   }
 }
@@ -424,8 +561,7 @@ exports.api = onRequest(
     region: "us-central1",
     cors: true,
     invoker: "public",
-    secrets: [POLAR_ACCESS_TOKEN],
-    // secrets: [POLAR_ACCESS_TOKEN], // Not needed if we don't call API
+    // POLAR_ACCESS_TOKEN is loaded from .env, no secrets needed
   },
   app
 );

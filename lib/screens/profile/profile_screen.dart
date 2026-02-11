@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -26,9 +27,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final auth = context.read<AuthProvider>();
       final profile = auth.currentUserProfile;
       if (profile != null && profile['businessId'] != null) {
-        context
-            .read<SubscriptionProvider>()
-            .loadSubscription(profile['businessId']);
+        context.read<SubscriptionProvider>().loadSubscription(
+          profile['businessId'],
+        );
       }
     });
   }
@@ -46,9 +47,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (bytes == null) return;
 
-    final error = await context
-        .read<AuthProvider>()
-        .uploadProfileImage(bytes: bytes, fileName: name);
+    final error = await context.read<AuthProvider>().uploadProfileImage(
+      bytes: bytes,
+      fileName: name,
+    );
 
     if (!mounted) return;
 
@@ -62,21 +64,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSubscriptionDialog(
-      BuildContext context,
-      String currentPlan,
-      String businessId,
-      ) {
+    BuildContext context,
+    String currentPlan,
+    String businessId,
+  ) {
     showDialog(
       context: context,
-      builder: (_) => SubscriptionDialog(
-        currentPlanId: currentPlan,
-        businessId: businessId,
-        onPlanSelected: (newPlan) {
-          context
-              .read<SubscriptionProvider>()
-              .upgradePlan(businessId, newPlan);
-        },
-      ),
+      builder:
+          (_) => SubscriptionDialog(
+            currentPlanId: currentPlan,
+            businessId: businessId,
+            onPlanSelected: (newPlan) {
+              context.read<SubscriptionProvider>().upgradePlan(
+                businessId,
+                newPlan,
+              );
+            },
+          ),
     );
   }
 
@@ -155,10 +159,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               CircleAvatar(
                 radius: 56,
                 backgroundColor: Colors.grey.shade200,
-                backgroundImage: photoURL.isNotEmpty
-                    ? NetworkImage(photoURL)
-                    : const AssetImage("assets/default_avatar.png")
-                as ImageProvider,
+                backgroundImage:
+                    photoURL.isNotEmpty
+                        ? NetworkImage(photoURL)
+                        : const AssetImage("assets/default_avatar.png")
+                            as ImageProvider,
               ),
               InkWell(
                 onTap: _pickImage,
@@ -212,10 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ------------------------------------------------------------
   // BUSINESS + SUBSCRIPTION CARD
   // ------------------------------------------------------------
-  Widget _businessCard(
-      Map<String, dynamic> user,
-      SubscriptionProvider sub,
-      ) {
+  Widget _businessCard(Map<String, dynamic> user, SubscriptionProvider sub) {
     final businessId = user['businessId'] ?? "—";
 
     return Container(
@@ -239,7 +241,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 16),
 
-          _infoRow(Icons.business, "Company Code", businessId),
+          _infoRow(
+            Icons.business,
+            "Company",
+            user['companyName'] ?? user['businessId'] ?? "—",
+          ),
+
+          // Show company code with copy button only for admin/super_admin
+          if (user['role'] == 'admin' || user['role'] == 'super_admin') ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.vpn_key, color: MyColors.darkShade),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Company Code",
+                        style: GoogleFonts.roboto(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        user['businessId'] ?? "—",
+                        style: GoogleFonts.roboto(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: MyColors.darkShade,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 20),
+                  tooltip: "Copy Company Code",
+                  onPressed: () {
+                    Clipboard.setData(
+                      ClipboardData(text: user['businessId'] ?? ""),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Company code copied!")),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
 
           const Divider(height: 32),
 
@@ -262,39 +313,108 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 4),
                     sub.isLoading
                         ? const SizedBox(
-                      height: 14,
-                      width: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                          height: 14,
+                          width: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                         : Text(
-                      sub.currentPlanDetails['name'] ?? "Free",
-                      style: GoogleFonts.roboto(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
+                          sub.currentPlanDetails['name'] ?? "Free",
+                          style: GoogleFonts.roboto(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
                   ],
                 ),
               ),
 
-              if (user['role'] == 'admin' ||
-                  user['role'] == 'super_admin')
-                OutlinedButton(
-                  onPressed: () => _showSubscriptionDialog(
-                    context,
-                    sub.currentSubscription['plan'],
-                    businessId,
-                  ),
-                  child: Text(
-                    "Upgrade",
-                    style: GoogleFonts.roboto(),
-                  ),
+              if (user['role'] == 'admin' || user['role'] == 'super_admin')
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed:
+                          () => _showSubscriptionDialog(
+                            context,
+                            sub.currentSubscription['plan'],
+                            businessId,
+                          ),
+                      child: Text("Upgrade", style: GoogleFonts.roboto()),
+                    ),
+                    if ((sub.currentPlanDetails['price'] ?? 0) > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: InkWell(
+                          onTap:
+                              () => _confirmCancellation(
+                                context,
+                                sub,
+                                businessId,
+                              ),
+                          child: Text(
+                            "Cancel Subscription",
+                            style: GoogleFonts.roboto(
+                              color: Colors.red,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  void _confirmCancellation(
+    BuildContext context,
+    SubscriptionProvider sub,
+    String businessId,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Cancel Subscription?"),
+            content: const Text(
+              "Are you sure you want to cancel? You will lose access to premium features at the end of your billing period.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Keep Subscription"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context); // Close dialog
+                  try {
+                    // businessId is passed from _businessCard -> _confirmCancellation
+                    await sub.cancelSubscription(businessId);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Subscription cancellation requested."),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Failed to cancel: $e")),
+                      );
+                    }
+                  }
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Cancel Now"),
+              ),
+            ],
+          ),
     );
   }
 
@@ -309,10 +429,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Text(
               label,
-              style: GoogleFonts.roboto(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
             ),
             Text(
               value,
@@ -337,8 +454,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: Colors.red.shade50,
           foregroundColor: Colors.red,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         onPressed: auth.logout,
         icon: const Icon(Icons.logout),

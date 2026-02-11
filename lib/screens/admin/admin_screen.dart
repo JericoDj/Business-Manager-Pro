@@ -42,7 +42,10 @@ class AdminDashboardScreen extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final box = GetStorage();
     final profile = box.read("profile");
-    final companyName = profile != null ? profile["businessId"] : "My Business";
+    final companyName =
+        profile != null
+            ? (profile["companyName"] ?? profile["businessId"] ?? "My Business")
+            : "My Business";
     final photoURL = profile != null ? profile["photoURL"] : null;
 
     return Scaffold(
@@ -90,9 +93,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     backgroundImage:
                         photoURL != null && photoURL.isNotEmpty
                             ? NetworkImage(photoURL)
-                            : const AssetImage(
-                                  "assets/default_avatar.png",
-                                )
+                            : const AssetImage("assets/default_avatar.png")
                                 as ImageProvider,
                   ),
                 ),
@@ -154,6 +155,15 @@ class AdminDashboardScreen extends StatelessWidget {
                   label: "Manage Clients",
                   color: MyColors.accent,
                   onTap: () => context.push("/admin/clients"),
+                ),
+
+                const SizedBox(height: 12),
+
+                // 🔵 Manage Company Documents
+                adminButton(
+                  label: "Company Documents",
+                  color: Colors.blue, // Using a distinct color
+                  onTap: () => context.push("/admin/company-documents"),
                 ),
 
                 const SizedBox(height: 12),

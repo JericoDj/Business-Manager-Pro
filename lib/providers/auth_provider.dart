@@ -106,6 +106,21 @@ class AuthProvider extends ChangeNotifier {
     if (doc.exists) {
       final data = Map<String, dynamic>.from(doc.data()!);
 
+      // Fetch company name from businesses collection
+      final businessId = data['businessId'];
+      if (businessId != null) {
+        final bizSnap =
+            await _firestore
+                .collection("businesses")
+                .where("companyCode", isEqualTo: businessId)
+                .limit(1)
+                .get();
+        if (bizSnap.docs.isNotEmpty) {
+          data['companyName'] =
+              bizSnap.docs.first.data()['companyName'] ?? businessId;
+        }
+      }
+
       // SANITIZE TIMESTAMP
       final safeData = _sanitizeForStorage(data);
 
@@ -177,6 +192,7 @@ class AuthProvider extends ChangeNotifier {
         "dateOfBirth": adminBirthDate,
         "role": "super_admin",
         "businessId": companyCode, // final, no need to update later
+        "companyName": companyName,
         "createdAt": FieldValue.serverTimestamp(),
       };
 
