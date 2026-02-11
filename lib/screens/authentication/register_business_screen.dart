@@ -19,7 +19,6 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
   final adminName = TextEditingController();
   final adminPhone = TextEditingController();
   final adminAddress = TextEditingController();
-  final adminBirthDate = TextEditingController();
 
   final password = TextEditingController();
   final confirmPassword = TextEditingController();
@@ -155,38 +154,8 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                       labelText: "Phone Number",
                     ),
                   ),
-                  const SizedBox(height: 10),
-
-                  // TextField(
-                  //   controller: adminAddress,
-                  //   decoration: const InputDecoration(
-                  //     labelText: "Home Address",
-                  //   ),
-                  // ),
-                  // const SizedBox(height: 10),
-                  TextField(
-                    controller: adminBirthDate,
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: "Date of Birth",
-                      suffixIcon: Icon(Icons.calendar_month),
-                    ),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        firstDate: DateTime(1950),
-                        lastDate: DateTime.now(),
-                        initialDate: DateTime(1990),
-                      );
-                      if (picked != null) {
-                        adminBirthDate.text =
-                            "${picked.month}/${picked.day}/${picked.year}";
-                      }
-                    },
-                  ),
 
                   const SizedBox(height: 10),
-
                   // ------------------ PASSWORD FIELDS ------------------
                   TextField(
                     controller: password,
@@ -256,7 +225,6 @@ class _RegisterBusinessScreenState extends State<RegisterBusinessScreen> {
                                 adminName: adminName.text.trim(),
                                 adminPhone: adminPhone.text.trim(),
                                 adminAddress: adminAddress.text.trim(),
-                                adminBirthDate: adminBirthDate.text.trim(),
                                 password: password.text.trim(),
                                 subscription: selectedPlan,
                               );

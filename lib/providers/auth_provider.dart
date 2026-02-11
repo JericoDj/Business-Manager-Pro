@@ -154,7 +154,6 @@ class AuthProvider extends ChangeNotifier {
     required String adminName,
     required String adminPhone,
     required String adminAddress,
-    required String adminBirthDate,
     required String password,
     String subscription = 'free',
   }) async {
@@ -189,7 +188,6 @@ class AuthProvider extends ChangeNotifier {
         "phone": adminPhone,
         "email": businessEmail,
         "homeAddress": adminAddress,
-        "dateOfBirth": adminBirthDate,
         "role": "super_admin",
         "businessId": companyCode, // final, no need to update later
         "companyName": companyName,
@@ -231,7 +229,6 @@ class AuthProvider extends ChangeNotifier {
     required String phone,
     required String email,
     required String homeAddress,
-    required String dateOfBirth,
     required String password,
     required String role,
     required String companyCode,
@@ -291,7 +288,6 @@ class AuthProvider extends ChangeNotifier {
         "phone": phone,
         "email": email,
         "homeAddress": homeAddress,
-        "dateOfBirth": dateOfBirth,
         "role": role,
         "businessId": companyCode,
         "createdAt": FieldValue.serverTimestamp(),
@@ -349,6 +345,53 @@ class AuthProvider extends ChangeNotifier {
       }
 
       return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // DELETE ACCOUNT (Apple App Store Guideline 5.1.1(v))
+  Future<String?> deleteAccount(String password) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return "No user logged in.";
+
+      // 1️⃣ Re-authenticate (Firebase requires recent auth for deletion)
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // 2️⃣ Delete user document from Firestore
+      await _firestore.collection("users").doc(user.uid).delete();
+
+      // 3️⃣ Delete profile image from Storage (if exists)
+      try {
+        await FirebaseStorage.instance
+            .ref()
+            .child("profile_images")
+            .child("${user.uid}.jpg")
+            .delete();
+      } catch (_) {
+        // Ignore if no profile image exists
+      }
+
+      // 4️⃣ Delete Firebase Auth account
+      await user.delete();
+
+      // 5️⃣ Clear local state
+      _storage.erase();
+      currentUser = null;
+      currentUserProfile = null;
+      notifyListeners();
+
+      return null; // success
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        return "Incorrect password. Please try again.";
+      }
+      return e.message ?? "Authentication error.";
     } catch (e) {
       return e.toString();
     }

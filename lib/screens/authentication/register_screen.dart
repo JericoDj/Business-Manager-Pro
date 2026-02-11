@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final phone = TextEditingController();
   final email = TextEditingController();
   final homeAddress = TextEditingController();
-  final dateOfBirth = TextEditingController();
+
   final password = TextEditingController();
   final confirmPassword = TextEditingController();
   final companyCode = TextEditingController();
@@ -56,7 +55,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-
                 /// HERO LOGO
                 GestureDetector(
                   onTap: () => context.go("/login"),
@@ -128,43 +126,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  items: roles.map((role) {
-                    return DropdownMenuItem(
-                      value: role,
-                      child: Text(
-                        role.toUpperCase(),
-                        style: GoogleFonts.roboto(),
-                      ),
-                    );
-                  }).toList(),
+                  items:
+                      roles.map((role) {
+                        return DropdownMenuItem(
+                          value: role,
+                          child: Text(
+                            role.toUpperCase(),
+                            style: GoogleFonts.roboto(),
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (val) => setState(() => selectedRole = val!),
-                ),
-
-                const SizedBox(height: 10),
-
-                TextField(
-                  controller: dateOfBirth,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: "Date of Birth",
-                    labelStyle: GoogleFonts.roboto(),
-                    suffixIcon: const Icon(Icons.calendar_month),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      firstDate: DateTime(1950),
-                      lastDate: DateTime.now(),
-                      initialDate: DateTime(2000),
-                    );
-                    if (picked != null) {
-                      dateOfBirth.text =
-                      "${picked.month}/${picked.day}/${picked.year}";
-                    }
-                  },
                 ),
 
                 const SizedBox(height: 10),
@@ -173,58 +145,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   label: "Password",
                   controller: password,
                   visible: passwordVisible,
-                  toggle: () =>
-                      setState(() => passwordVisible = !passwordVisible),
+                  toggle:
+                      () => setState(() => passwordVisible = !passwordVisible),
                 ),
 
                 _passwordField(
                   label: "Confirm Password",
                   controller: confirmPassword,
                   visible: confirmPasswordVisible,
-                  toggle: () =>
-                      setState(() => confirmPasswordVisible = !confirmPasswordVisible),
+                  toggle:
+                      () => setState(
+                        () => confirmPasswordVisible = !confirmPasswordVisible,
+                      ),
                 ),
 
                 const SizedBox(height: 20),
 
                 GestureDetector(
-                  onTap: loading
-                      ? null
-                      : () async {
-                    if (password.text.trim() != confirmPassword.text.trim()) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Passwords do not match"),
-                        ),
-                      );
-                      return;
-                    }
+                  onTap:
+                      loading
+                          ? null
+                          : () async {
+                            if (password.text.trim() !=
+                                confirmPassword.text.trim()) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Passwords do not match"),
+                                ),
+                              );
+                              return;
+                            }
 
-                    setState(() => loading = true);
+                            setState(() => loading = true);
 
-                    final error = await auth.registerUser(
-                      name: name.text.trim(),
-                      phone: phone.text.trim(),
-                      email: email.text.trim(),
-                      homeAddress: homeAddress.text.trim(),
-                      dateOfBirth: dateOfBirth.text.trim(),
-                      password: password.text.trim(),
-                      role: selectedRole,
-                      companyCode: companyCode.text.trim(),
-                    );
+                            final error = await auth.registerUser(
+                              name: name.text.trim(),
+                              phone: phone.text.trim(),
+                              email: email.text.trim(),
+                              homeAddress: homeAddress.text.trim(),
+                              password: password.text.trim(),
+                              role: selectedRole,
+                              companyCode: companyCode.text.trim(),
+                            );
 
-                    if (!mounted) return;
-                    setState(() => loading = false);
+                            if (!mounted) return;
+                            setState(() => loading = false);
 
-                    if (error != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(error)),
-                      );
-                      return;
-                    }
+                            if (error != null) {
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text(error)));
+                              return;
+                            }
 
-                    context.go("/");
-                  },
+                            context.go("/");
+                          },
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -233,16 +208,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
-                    child: loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                      "Register",
-                      style: GoogleFonts.roboto(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child:
+                        loading
+                            ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                            : Text(
+                              "Register",
+                              style: GoogleFonts.roboto(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                   ),
                 ),
 
@@ -261,7 +239,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-
               ],
             ),
           ),
@@ -279,9 +256,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: GoogleFonts.roboto(),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
@@ -309,9 +284,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             onPressed: toggle,
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -124,6 +125,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _businessCard(user, sub),
                 const SizedBox(height: 24),
                 _logoutButton(auth),
+                const SizedBox(height: 12),
+                _deleteAccountButton(auth),
               ],
             ),
           ),
@@ -465,6 +468,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: GoogleFonts.roboto(fontWeight: FontWeight.bold),
         ),
       ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // DELETE ACCOUNT BUTTON
+  // ------------------------------------------------------------
+  Widget _deleteAccountButton(AuthProvider auth) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.red.shade400,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        onPressed: () => _confirmDeleteAccount(auth),
+        icon: const Icon(Icons.delete_forever, size: 20),
+        label: Text("Delete Account", style: GoogleFonts.roboto(fontSize: 14)),
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount(AuthProvider auth) {
+    final passwordController = TextEditingController();
+    bool isDeleting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text("Delete Account"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "This action is permanent and cannot be undone. "
+                    "All your data will be deleted.",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("Enter your password to confirm:"),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: "Password",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed:
+                      isDeleting
+                          ? null
+                          : () async {
+                            if (passwordController.text.trim().isEmpty) return;
+
+                            setDialogState(() => isDeleting = true);
+
+                            final error = await auth.deleteAccount(
+                              passwordController.text.trim(),
+                            );
+
+                            if (!context.mounted) return;
+
+                            if (error != null) {
+                              setDialogState(() => isDeleting = false);
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text(error)));
+                            } else {
+                              Navigator.pop(ctx);
+                              context.go("/login");
+                            }
+                          },
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child:
+                      isDeleting
+                          ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text("Delete Permanently"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
